@@ -1,0 +1,940 @@
+
+\textbf{单杠体操机器人三连杆欠驱动动力学模型（PAA）}
+
+\lt{将单杠体操机器人在矢状面内的运动抽象为平面三连杆欠驱动系统：第1关节为被动关节（抓握单杠处），第2、3关节为主动关节。建立惯性坐标系 $O\!-\!XY$，其中 $X$ 轴水平向右、$Y$ 轴竖直向上，逆时针为角度正方向。}
+
+
+\lt{定义广义坐标及其分块形式为：}
+
+\lt{\begin{align}
+q=\begin{bmatrix} q_1 & q_2 & q_3 \end{bmatrix}^{T}
+=\begin{bmatrix} q_1 & q_a^T \end{bmatrix}^{T},
+\qquad
+q_a=\begin{bmatrix} q_2 & q_3 \end{bmatrix}^{T},
+\end{align}}
+\lt{其中 $q_1$ 为被动关节角，$q_2,q_3$ 为主动关节相对角。}
+
+\vspace{0.5em}
+\lt{考虑第1关节粘滞摩擦，第2、3关节电机驱动，则广义输入为：}
+\lt{\begin{align}
+U=\begin{bmatrix}
+-b_1\dot q_1\\
+\tau_2\\
+\tau_3
+\end{bmatrix},
+\qquad
+\tau_a=\begin{bmatrix}\tau_2\\ \tau_3\end{bmatrix}.
+\end{align}}
+
+\vspace{0.5em}
+\lt{系统动力学可写为：}
+\lt{\begin{align}
+M(q_a)\ddot q + H(q,\dot q) + G(q) = U,
+\label{dynamic}
+\end{align}}
+\lt{其中 $M(q_a)$ 为惯性矩阵，$H(q,\dot q)$ 为科里奥利/离心项，$G(q)$ 为重力项。}
+
+\vspace{0.5em}
+\lt{将（\ref{dynamic}）式按被动/主动关节分块后，可写为：}
+\lt{\begin{align}
+M_{11}\ddot q_1 + M_{1a}\ddot q_a + H_1 + G_1 &= -b_1\dot q_1, \\
+M_{a1}\ddot q_1 + M_{aa}\ddot q_a + H_a + G_a &= \tau_a.
+\end{align}}
+
+其中
+\lt{\begin{align}
+M(q_a)=
+\begin{bmatrix}
+M_{11} & M_{1a}\\
+M_{a1} & M_{aa}
+\end{bmatrix}
+=
+\begin{bmatrix}
+M_{11} & M_{12} & M_{13}\\
+M_{21} & M_{22} & M_{23}\\
+M_{31} & M_{32} & M_{33}
+\end{bmatrix},
+\end{align}}
+\lt{且 $M_{ij}=M_{ji}$, \; i=1,2,3, \; j=1,2,3。}
+
+\vspace{0.5em}
+\lt{惯性矩阵元素为：}
+\lt{\begin{align}
+M_{11} &= \alpha_1+\alpha_2+\alpha_4
++2\alpha_3\cos q_2
++2\alpha_5\cos(q_2+q_3)
++2\alpha_6\cos q_3, \\
+M_{12}&=M_{21} = \alpha_2+\alpha_4
++\alpha_3\cos q_2
++\alpha_5\cos(q_2+q_3)
++2\alpha_6\cos q_3, \\
+M_{13}&=M_{31} = \alpha_4+\alpha_5\cos(q_2+q_3)+\alpha_6\cos q_3, \\
+M_{22} &= \alpha_2+\alpha_4+2\alpha_6\cos q_3, \\
+M_{23}&=M_{32} = \alpha_4+\alpha_6\cos q_3, \\
+M_{33} &= \alpha_4.
+\end{align}}
+
+\lt{其中，}
+\lt{\begin{align}
+\left\{
+\begin{aligned}
+\alpha_1 &= I_1 + m_1lc_1^2 + (m_2+m_3)l_1^2, \\
+\alpha_2 &= I_2 + m_2lc_2^2 + m_3l_2^2, \\
+\alpha_3 &= (m_2lc_2+m_3l_2)l_1,
+\end{aligned}
+\right.
+\qquad
+\left\{
+\begin{aligned}
+\alpha_4 &= I_3 + m_3lc_3^2, \\
+\alpha_5 &= m_3l_1lc_3, \\
+\alpha_6 &= m_3l_2lc_3.
+\end{aligned}
+\right.
+\end{align}}
+
+\vspace{0.5em}
+\lt{重力项为}
+\lt{\begin{align}
+G_1 &= \beta_1\cos q_1+\beta_2\cos(q_1+q_2)+\beta_3\cos(q_1+q_2+q_3), \\
+G_a &=
+\begin{bmatrix}
+\beta_2\cos(q_1+q_2)+\beta_3\cos(q_1+q_2+q_3) \\
+\beta_3\cos(q_1+q_2+q_3)
+\end{bmatrix}.
+\end{align}}
+\lt{其中，}
+\lt{\begin{align}
+\left\{
+\begin{aligned}
+\beta_1 &= (m_1lc_1+m_2l_1+m_3l_1)g, \\
+\beta_2 &= (m_2lc_2+m_3l_2)g, \\
+\beta_3 &= m_3lc_3g.
+\end{aligned}
+\right.
+\end{align}}
+
+\lt{\begin{align}
+H_1 =& -\alpha_3(2\dot q_1+\dot q_2)\dot q_2\sin q_2
+-\alpha_5(2\dot q_1+\dot q_2+\dot q_3)(\dot q_2+\dot q_3)\sin(q_2+q_3) \\
+&-\alpha_6(2\dot q_1+2\dot q_2+\dot q_3)\dot q_3\sin q_3,
+\end{align}}
+\lt{\begin{align}
+H_a=
+\begin{bmatrix}
+\alpha_3\dot q_1^2\sin q_2
++\alpha_5\dot q_1^2\sin(q_2+q_3)
+-\alpha_6(2\dot q_1+2\dot q_2+\dot q_3)\dot q_3\sin q_3 \\[0.5em]
+\alpha_5\dot q_1^2\sin(q_2+q_3)
++\alpha_6(\dot q_1+\dot q_2)^2\sin q_3
+\end{bmatrix}.
+\end{align}}
+
+\vspace{0.5em}
+\lt{系统势能与机械能可表示为}
+\lt{\begin{align}
+P(q) &= \beta_1\sin q_1+\beta_2\sin(q_1+q_2)+\beta_3\sin(q_1+q_2+q_3), \\
+E(q,\dot q) &= \frac{1}{2}\dot q^T M(q_a)\dot q + P(q).
+\end{align}}
+
+\lt{上述模型可直接用于后续的状态空间建模、数值仿真与欠驱动控制器设计（如摆起控制、能量控制及轨迹跟踪控制）。}
+\vspace{0.5em}
+
+\textbf{质心一般情况下的PAA模型}
+
+\vspace{0.5em}
+\lt{在上述质心位于连杆轴线的建模基础上，进一步考虑电机、减速器等部件安装引起的质心偏置。设第 \(i\) 连杆质心相对连杆轴线的固定偏置角为 \(\gamma_i\)（\(i=1,2,3\)），其余符号定义与前文保持一致。}
+
+% \vspace{0.5em}
+% \lt{此时三连杆质心位置可写为}
+% \lt{\begin{align}
+% x_{c1} &= lc_1\cos(q_1+\gamma_1), &
+% y_{c1} &= lc_1\sin(q_1+\gamma_1), \\
+% x_{c2} &= l_1\cos q_1 + lc_2\cos(q_1+q_2+\gamma_2), &
+% y_{c2} &= l_1\sin q_1 + lc_2\sin(q_1+q_2+\gamma_2), \\
+% x_{c3} &= l_1\cos q_1 + l_2\cos(q_1+q_2) + lc_3\cos(q_1+q_2+q_3+\gamma_3), &
+% y_{c3} &= l_1\sin q_1 + l_2\sin(q_1+q_2) + lc_3\sin(q_1+q_2+q_3+\gamma_3).
+% \end{align}}
+
+\vspace{0.5em}
+\lt{系统动力学方程仍可写为：}
+\lt{\begin{align}
+M(q)\ddot q + H(q,\dot q) + G(q) = U,
+\end{align}}
+\lt{其中，}
+\lt{\begin{align}
+U=\begin{bmatrix}
+-b_1\dot q_1\\
+\tau_2\\
+\tau_3
+\end{bmatrix},
+\qquad
+q=\begin{bmatrix} q_1 & q_2 & q_3 \end{bmatrix}^{T},
+\qquad
+q_a=\begin{bmatrix} q_2 & q_3 \end{bmatrix}^{T},
+\qquad
+\tau_a=\begin{bmatrix}\tau_2\\ \tau_3\end{bmatrix}.
+\end{align}}
+
+\vspace{0.5em}
+\lt{按被动/主动关节分块后，可写为：}
+\lt{\begin{align*}
+M_{11}\ddot q_1 + M_{1a}\ddot q_a + H_1 + G_1 &= -b_1\dot q_1, \\
+M_{a1}\ddot q_1 + M_{aa}\ddot q_a + H_a + G_a &= \tau_a.
+\end{align*}}
+
+\lt{\begin{align}
+M(q)=
+\begin{bmatrix}
+M_{11} & M_{1a}\\
+M_{a1} & M_{aa}
+\end{bmatrix}
+=
+\begin{bmatrix}
+M_{11} & M_{12} & M_{13}\\
+M_{21} & M_{22} & M_{23}\\
+M_{31} & M_{32} & M_{33}
+\end{bmatrix},
+\end{align}}
+\lt{且 \(M_{ij}=M_{ji}\)。}
+
+\vspace{0.5em}
+\lt{则惯性矩阵元素为}
+\lt{\begin{align*}
+M_{11} &= \alpha_1+\alpha_2+\alpha_4
++2\alpha_3\cos(q_2+\gamma_2)
++2\alpha_7\cos q_2
++2\alpha_6\cos(q_3+\gamma_3)
++2\alpha_5\cos(q_2+q_3+\gamma_3), \\
+M_{12}&=M_{21} = \alpha_2+\alpha_4
++\alpha_3\cos(q_2+\gamma_2)
++\alpha_7\cos q_2
++2\alpha_6\cos(q_3+\gamma_3)
++\alpha_5\cos(q_2+q_3+\gamma_3), \\
+M_{13}&=M_{31} = \alpha_4+\alpha_6\cos(q_3+\gamma_3)+\alpha_5\cos(q_2+q_3+\gamma_3), \\
+M_{22} &= \alpha_2+\alpha_4+2\alpha_6\cos(q_3+\gamma_3), \\
+M_{23}&=M_{32} = \alpha_4+\alpha_6\cos(q_3+\gamma_3), \\
+M_{33} &= \alpha_4.
+\end{align*}}
+
+\lt{其中，}
+\lt{\begin{align}
+\left\{
+\begin{aligned}
+\alpha_1 &= I_1 + m_1lc_1^2 + (m_2+m_3)l_1^2, \\
+\alpha_2 &= I_2 + m_2lc_2^2 + m_3l_2^2, \\
+\alpha_3 &= m_2lc_2l_1, \\
+\alpha_4 &= I_3 + m_3lc_3^2,
+\end{aligned}
+\right.
+\qquad
+\left\{
+\begin{aligned}
+\alpha_5 &= m_3l_1lc_3, \\
+\alpha_6 &= m_3l_2lc_3, \\
+\alpha_7 &= m_3l_1l_2.
+\end{aligned}
+\right.
+\end{align}}
+
+\vspace{0.5em}
+\lt{则重力项为}
+\lt{\begin{align*}
+G_1 &= \beta_{1}^{\mathrm{non}}\cos q_1
++\beta_{1}^{\mathrm{off}}\cos(q_1+\gamma_1)
++\beta_{2}^{\mathrm{non}}\cos(q_1+q_2)
++\beta_{2}^{\mathrm{off}}\cos(q_1+q_2+\gamma_2) \\
+&\quad
++\beta_{3}^{\mathrm{off}}\cos(q_1+q_2+q_3+\gamma_3), \\
+G_a &=
+\begin{bmatrix}
+\beta_{2}^{\mathrm{non}}\cos(q_1+q_2)
++\beta_{2}^{\mathrm{off}}\cos(q_1+q_2+\gamma_2)
++\beta_{3}^{\mathrm{off}}\cos(q_1+q_2+q_3+\gamma_3) \\[0.4em]
+\beta_{3}^{\mathrm{off}}\cos(q_1+q_2+q_3+\gamma_3)
+\end{bmatrix}.
+\end{align*}}
+
+\lt{其中，}
+\lt{\begin{align}
+\left\{
+\begin{aligned}
+\beta_{1}^{\mathrm{non}} &= (m_2l_1+m_3l_1)g, \\
+\beta_{1}^{\mathrm{off}} &= m_1lc_1g, \\
+\beta_{2}^{\mathrm{non}} &= m_3l_2g,
+\end{aligned}
+\right.
+\qquad
+\left\{
+\begin{aligned}
+\beta_{2}^{\mathrm{off}} &= m_2lc_2g, \\
+\beta_{3}^{\mathrm{off}} &= m_3lc_3g.
+\end{aligned}
+\right.
+\end{align}}
+
+\vspace{0.5em}
+\lt{科里奥利项与离心项可写为}
+\lt{\begin{align*}
+H_1 ={}& -S_2(2\dot q_1+\dot q_2)\dot q_2
+-S_{23}(2\dot q_1+\dot q_2+\dot q_3)(\dot q_2+\dot q_3) \\
+&-S_3(2\dot q_1+2\dot q_2+\dot q_3)\dot q_3,
+\end{align*}}
+\lt{\begin{align}
+H_a=
+\begin{bmatrix}
+(S_2+S_{23})\dot q_1^2
+-S_3(2\dot q_1+2\dot q_2+\dot q_3)\dot q_3 \\[0.6em]
+S_{23}\dot q_1^2 + S_3(\dot q_1+\dot q_2)^2
+\end{bmatrix}.
+\end{align}}
+
+\lt{其中，}
+\lt{\begin{align}
+S_2 &= \alpha_3\sin(q_2+\gamma_2)+\alpha_7\sin q_2, \\
+S_{23} &= \alpha_5\sin(q_2+q_3+\gamma_3), \\
+S_3 &= \alpha_6\sin(q_3+\gamma_3).
+\end{align}}
+
+\vspace{0.5em}
+\lt{系统势能与机械能可表示为}
+\lt{\begin{align*}
+P(q) &= \beta_{1}^{\mathrm{non}}\sin q_1
++\beta_{1}^{\mathrm{off}}\sin(q_1+\gamma_1)
++\beta_{2}^{\mathrm{non}}\sin(q_1+q_2)
++\beta_{2}^{\mathrm{off}}\sin(q_1+q_2+\gamma_2) \\
+&\quad
++\beta_{3}^{\mathrm{off}}\sin(q_1+q_2+q_3+\gamma_3), \\
+E(q,\dot q) &= \frac{1}{2}\dot q^T M(q)\dot q + P(q).
+\end{align*}}
+
+\vspace{0.5em}
+\lt{当两手爪均脱离单杠后，机器人由受约束的欠驱动系统转变为平面内的浮动基座系统（Floating-base System）。此时可采用两种在数学上完全等价的动力学建模方式：一种是保留虚拟平移关节的 $5$ 自由度浮动基座模型；另一种是通过 Schur 补消去平移自由度，得到仅含姿态变量的 $3$ 自由度降维模型。}
+
+若将各质心偏移角度\(\gamma_i\)（\(i=1,2,3\)）均取特殊值零，则一般质心位置情形下的运动学模型退化为上述单杠体操机器人三连杆欠驱动动力学模型（PAA），由此对本节中的运动学模型做了特殊验证。
+
+双手离杠模型
+
+\vspace{0.5em}
+\lt{\textbf{方案 A：基于虚拟平移关节的浮动基座模型}}
+
+\lt{引入原关节 $1$（手爪）在惯性坐标系中的平移坐标 $(x_0,y_0)$ 作为虚拟平移关节，则腾空阶段的广义坐标可写为}
+\lt{\begin{align}
+q_f = \begin{bmatrix}x_0 & y_0 & q_1 & q_2 & q_3\end{bmatrix}^{T}
+= \begin{bmatrix}\boldsymbol{p}^{T} & q^{T}\end{bmatrix}^{T},
+\qquad
+\boldsymbol{p} = \begin{bmatrix}x_0 & y_0\end{bmatrix}^{T},
+\qquad
+q = \begin{bmatrix}q_1 & q_2 & q_3\end{bmatrix}^{T}.
+\end{align}}
+
+\lt{利用平动与转动动能解耦的特性，腾空阶段的动力学方程可写为规整的分块矩阵形式：}
+\lt{\begin{align}
+\begin{bmatrix}
+M_{total}I_{2\times2} & J_{cm}(q)\\
+J_{cm}^{T}(q) & M(q)
+\end{bmatrix}
+\begin{bmatrix}
+\ddot{\boldsymbol{p}}\\
+\ddot q
+\end{bmatrix}
++
+\begin{bmatrix}
+H_p(q,\dot q)\\
+H(q,\dot q)
+\end{bmatrix}
++
+\begin{bmatrix}
+0\\
+M_{total}g\\
+G(q)
+\end{bmatrix}
+=
+\begin{bmatrix}
+0\\
+0\\
+0\\
+\tau_2\\
+\tau_3
+\end{bmatrix}.
+\end{align}}
+
+\lt{其中，系统总质量 $M_{total}=m_1+m_2+m_3$。}
+
+\lt{平移与转动的耦合惯性矩阵（即相对静力矩雅可比矩阵）$J_{cm}(q)$ 为：}
+\lt{\begin{align}
+J_{cm}(q)=
+\begin{bmatrix}
+\dfrac{\partial S_x}{\partial q_1} & \dfrac{\partial S_x}{\partial q_2} & \dfrac{\partial S_x}{\partial q_3}\\[0.6em]
+\dfrac{\partial S_y}{\partial q_1} & \dfrac{\partial S_y}{\partial q_2} & \dfrac{\partial S_y}{\partial q_3}
+\end{bmatrix}
+=
+\begin{bmatrix}
+-G_1^{\sin} & -G_2^{\sin} & -G_3^{\sin}\\
+G_1/g & G_2/g & G_3/g
+\end{bmatrix}.
+\end{align}}
+\lt{式中，$G_i^{\sin}~(i=1,2,3)$ 表示将原重力项 $G_i$ 中的 $\cos(\cdot)$ 替换为 $\sin(\cdot)$ 并约去常数 $g$ 后得到的广义正弦重力分量；$S_x(q)$ 与 $S_y(q)$ 分别为系统相对手爪的静力矩：}
+\lt{\begin{align}
+S_x(q)=m_1x_{c1}+m_2x_{c2}+m_3x_{c3},
+\qquad
+S_y(q)=m_1y_{c1}+m_2y_{c2}+m_3y_{c3}.
+\end{align}}
+
+\lt{平移子系统的科里奥利与向心力项 $H_p(q,\dot q)$ 满足 $H_p(q,\dot q) = \dot J_{cm}(q)\dot q$，具体展开为：}
+\lt{\begin{align}
+H_p(q,\dot q)
+=
+\begin{bmatrix}
+H_{px}\\
+H_{py}
+\end{bmatrix},
+\end{align}}
+\lt{\begin{align*}
+H_{px}={}&-\hat{\beta}_{1}^{\mathrm{non}}\omega_1^2\cos q_1
+-\hat{\beta}_{1}^{\mathrm{off}}\omega_1^2\cos(q_1+\gamma_1)
+-\hat{\beta}_{2}^{\mathrm{non}}\omega_2^2\cos(q_1+q_2) \\
+&-\hat{\beta}_{2}^{\mathrm{off}}\omega_2^2\cos(q_1+q_2+\gamma_2)
+-\hat{\beta}_{3}^{\mathrm{off}}\omega_3^2\cos(q_1+q_2+q_3+\gamma_3),
+\end{align*}}
+\lt{\begin{align*}
+H_{py}={}&-\hat{\beta}_{1}^{\mathrm{non}}\omega_1^2\sin q_1
+-\hat{\beta}_{1}^{\mathrm{off}}\omega_1^2\sin(q_1+\gamma_1)
+-\hat{\beta}_{2}^{\mathrm{non}}\omega_2^2\sin(q_1+q_2) \\
+&-\hat{\beta}_{2}^{\mathrm{off}}\omega_2^2\sin(q_1+q_2+\gamma_2)
+-\hat{\beta}_{3}^{\mathrm{off}}\omega_3^2\sin(q_1+q_2+q_3+\gamma_3).
+\end{align*}}
+
+\lt{其中绝对角速度 $\omega_i$ 与归一化聚合参数 $\hat{\beta}$ 释义如下：}
+\lt{\begin{align}
+\omega_1=\dot q_1,
+\qquad
+\omega_2=\dot q_1+\dot q_2,
+\qquad
+\omega_3=\dot q_1+\dot q_2+\dot q_3,
+\end{align}}
+\lt{\begin{align}
+\left\{
+\begin{aligned}
+\hat{\beta}_{1}^{\mathrm{non}} &= m_2l_1+m_3l_1, \\
+\hat{\beta}_{1}^{\mathrm{off}} &= m_1lc_1, \\
+\hat{\beta}_{2}^{\mathrm{non}} &= m_3l_2,
+\end{aligned}
+\right.
+\qquad
+\left\{
+\begin{aligned}
+\hat{\beta}_{2}^{\mathrm{off}} &= m_2lc_2, \\
+\hat{\beta}_{3}^{\mathrm{off}} &= m_3lc_3.
+\end{aligned}
+\right.
+\end{align}}
+
+\vspace{0.5em}
+\lt{需要指出的是，式中 $M(q)$、$H(q,\dot q)$ 与 $G(q)$ 分别为前述“一般质心偏置情形”固定基座模型中的惯性矩阵、科里奥利/离心项和重力项，其数学表达式严格保持不变。}
+
+\vspace{0.5em}
+\lt{\textbf{方案 B：基于 Schur 补消元的降维姿态模型}}
+
+\lt{由方案 A 的平移子系统，可直接解出系统总质心运动所导致的平移加速度：}
+\lt{\begin{align}
+\ddot{\boldsymbol{p}}
+=
+-\frac{1}{M_{total}}
+\left(
+J_{cm}(q)\ddot q + H_p(q,\dot q) +
+\begin{bmatrix}
+0\\
+M_{total}g
+\end{bmatrix}
+\right).
+\end{align}}
+
+\lt{将上式代入方案 A 的姿态方程中，可完美消去虚拟平移变量，从而得到仅含姿态变量的 $3 \times 3$ 降维动力学方程：}
+\lt{\begin{align}
+\bar M(q)\ddot q + \bar H(q,\dot q) = \begin{bmatrix}0\\ \tau_2\\ \tau_3\end{bmatrix}.
+\end{align}}
+
+\lt{其中，等效惯性矩阵 $\bar M(q)$ 与等效科里奥利项 $\bar H(q,\dot q)$ 的 Schur 补形式分别为：}
+\lt{\begin{align}
+\bar M(q)=M(q)-\frac{1}{M_{total}}J_{cm}^{T}(q)J_{cm}(q),
+\end{align}}
+\lt{\begin{align}
+\bar H(q,\dot q)=H(q,\dot q)-\frac{1}{M_{total}}J_{cm}^{T}(q)H_p(q,\dot q).
+\end{align}}
+
+\lt{尤为关键的是，等效重力项 $\bar G(q)$ 满足：}
+\lt{\begin{align}
+\bar G(q) &= G(q)-\frac{1}{M_{total}}J_{cm}^{T}(q)
+\begin{bmatrix}
+0\\
+M_{total}g
+\end{bmatrix} \notag \\
+&= G(q) - G(q) = \mathbf{0}_{3 \times 1}.
+\end{align}}
+\lt{此结果在物理上深刻地表明：在腾空阶段的系统自由落体坐标系（失重状态）下，重力不再对机器人的内部姿态运动产生任何力矩作用，重力项被完全抵消。}
+
+\lt{进一步展开可知，等效惯性矩阵 $\bar M(q)$ 保留了完美的对称正定性，其各元素可解析地表达为：}
+\lt{\begin{align}
+\bar M_{ij}(q)=M_{ij}(q)-\frac{1}{M_{total}}
+\left(
+G_i^{\sin}G_j^{\sin}+\frac{G_iG_j}{g^2}
+\right),
+\qquad
+i,j\in\{1,2,3\}.
+\end{align}}
+
+\vspace{0.5em}
+\lt{此外，作为腾空阶段系统降维的物理学本质体现，系统绕总质心的角动量守恒提供了一阶非完整约束：}
+\lt{\begin{align}
+L_{sys}(q,\dot q)=L_{sys}(0)=\mathrm{const}.
+\end{align}}
+\lt{结合雅可比与静力矩关系，该角动量可利用既有参数优雅地表示为：}
+\lt{\begin{align}
+L_{sys}(q,\dot q)
+=
+\left(M_{11}\dot q_1+M_{12}\dot q_2+M_{13}\dot q_3\right)
+-\frac{1}{M_{total}}\left(S_x(q)\dot S_y(q)-S_y(q)\dot S_x(q)\right).
+\end{align}}
+
+\vspace{0.5em}
+\lt{综上所述，腾空阶段既可采用保留虚拟平移关节的 $5$ 自由度浮动基座模型进行全局统一建模，以便与抓握阶段实现无缝状态切换；也可采用 Schur 补消元后得到的 $3$ 自由度降维姿态模型。后者维度更低，物理意义更直观，尤其适用于空翻姿态的轨迹规划与基于角动量守恒的非线性控制器设计。}
+
+
+
+
+\vspace{0.8em}
+\textbf{高低杠 Park 空翻的低杆抓握冲击模型}
+
+\lt{基于前述“方案 A：基于虚拟平移关节的浮动基座模型”，可进一步对机器人在高杆脱手后经腾空阶段抓握低杆的瞬时碰撞过程进行建模。由于该过程发生在极短时间尺度内，且本文关注的重点是碰撞前后状态的瞬时跃变而非接触微观形变，因此采用基于广义动量守恒的代数冲量模型（Algebraic Impulse Model）对低杆抓握冲击进行描述。}
+
+\vspace{0.5em}
+\lt{设低杆在惯性坐标系中的固定位置为}
+\lt{\begin{align}
+\boldsymbol{p}_L=
+\begin{bmatrix}
+D_x\\
+D_y
+\end{bmatrix},
+\qquad
+\boldsymbol{p}=
+\begin{bmatrix}
+x_0\\
+y_0
+\end{bmatrix}.
+\end{align}}
+
+\lt{在碰撞前瞬间 $t^-$，系统仍处于腾空阶段，其广义坐标与广义速度分别为}
+\lt{\begin{align}
+q_f^-=
+\begin{bmatrix}
+\boldsymbol{p}^{-}\\
+q^{-}
+\end{bmatrix},
+\qquad
+\dot q_f^-=
+\begin{bmatrix}
+\dot{\boldsymbol{p}}^{-}\\
+\dot q^{-}
+\end{bmatrix},
+\end{align}}
+\lt{其中 $q=\begin{bmatrix}q_1 & q_2 & q_3\end{bmatrix}^{T}$ 的定义与前文保持一致。碰撞后瞬间记为 $t^+$。在刚体瞬时碰撞假设下，位置在无穷小时间内保持连续，即}
+\lt{\begin{align}
+q_f^+ = q_f^-.
+\end{align}}
+
+\vspace{0.5em}
+\lt{\textbf{1. 触发条件（Guard Condition）}}
+
+\lt{为避免数值积分过程中在接触面附近产生重复触发或误判，定义低杆抓握的接触事件函数为}
+\lt{\begin{align}
+\phi(\boldsymbol{p}) = \|\boldsymbol{p}-\boldsymbol{p}_L\| - r_c,
+\end{align}}
+\lt{其中 $r_c$ 为有效抓握半径。在理想点接触模型下可取 $r_c=0$；在实际数值仿真中，亦可取一个很小的正数，或采用与之等价的平方距离事件函数以提高事件检测的鲁棒性。}
+
+\lt{因此，系统由腾空阶段切换至低杆抓握阶段的严格触发条件可写为}
+\lt{\begin{align}
+\phi(\boldsymbol{p}^-) = 0,
+\qquad
+(\boldsymbol{p}^- - \boldsymbol{p}_L)^T \dot{\boldsymbol{p}}^- < 0.
+\end{align}}
+\lt{其物理意义为：手爪到达低杆接触面，且碰撞前瞬时相对速度沿接触法向指向接触面内部，从而排除离开接触面或数值穿透所造成的误触发。}
+
+\vspace{0.5em}
+\lt{\textbf{2. 冲击动力学积分方程}}
+
+\lt{在碰撞瞬间，重力项、科里奥利项以及有界的关节驱动力矩在无穷小时间区间上的积分均可忽略不计，仅保留惯性项与低杆对手爪施加的外力冲量。记接触冲量为}
+\lt{\begin{align}
+\Lambda=
+\begin{bmatrix}
+\Lambda_x\\
+\Lambda_y
+\end{bmatrix}.
+\end{align}}
+
+\lt{则由前述方案 A 的浮动基座动力学在区间 $[t^-,t^+]$ 上积分，可得碰撞瞬间的广义动量守恒方程：}
+\lt{\begin{align}
+M_f(q^-)\left(\dot q_f^+ - \dot q_f^-\right) = J_c^T \Lambda,
+\end{align}}
+\lt{其中全局惯性矩阵 $M_f(q)$ 为}
+\lt{\begin{align}
+M_f(q)=
+\begin{bmatrix}
+M_{total}I_{2\times2} & J_{cm}(q)\\
+J_{cm}^T(q) & M(q)
+\end{bmatrix}.
+\end{align}}
+
+\vspace{0.5em}
+\lt{\textbf{3. 接触雅可比矩阵与碰撞后速度约束}}
+
+\lt{由于前文方案 A 直接将手爪在惯性坐标系中的平移坐标 $(x_0,y_0)$ 选作前两个广义坐标，因此手爪速度即为 $\dot{\boldsymbol{p}}$。相应地，低杆抓握的接触雅可比矩阵可简洁写为}
+\lt{\begin{align}
+J_c=
+\begin{bmatrix}
+1 & 0 & 0 & 0 & 0\\
+0 & 1 & 0 & 0 & 0
+\end{bmatrix}.
+\end{align}}
+
+\lt{在完全非弹性、无滑移且无反弹的理想抓握假设下，碰撞后手爪的平移速度被瞬时约束为零，即}
+\lt{\begin{align}
+J_c \dot q_f^+ = \mathbf{0}_{2\times 1}
+\quad \Longleftrightarrow \quad
+\dot{\boldsymbol{p}}^+ = \mathbf{0}_{2\times 1}.
+\end{align}}
+
+\vspace{0.5em}
+\lt{\textbf{4. 分块展开与碰撞后姿态角速度跃变}}
+
+\lt{将碰撞后约束 $\dot{\boldsymbol{p}}^+=\mathbf{0}$ 代入冲击动力学积分方程，可得}
+\lt{\begin{align}
+\begin{bmatrix}
+M_{total}I_{2\times2} & J_{cm}(q^-)\\
+J_{cm}^{T}(q^-) & M(q^-)
+\end{bmatrix}
+\begin{bmatrix}
+-\dot{\boldsymbol{p}}^-\\
+\dot q^+ - \dot q^-
+\end{bmatrix}
+=
+\begin{bmatrix}
+I_{2\times2}\\
+\mathbf{0}_{3\times2}
+\end{bmatrix}
+\Lambda.
+\end{align}}
+
+\lt{将上式按平移子空间与姿态子空间分别展开，可得}
+\lt{\begin{align}
+-M_{total}\dot{\boldsymbol{p}}^- + J_{cm}(q^-)\left(\dot q^+ - \dot q^-\right) &= \Lambda, \\
+-J_{cm}^{T}(q^-)\dot{\boldsymbol{p}}^- + M(q^-)\left(\dot q^+ - \dot q^-\right) &= \mathbf{0}_{3\times1}.
+\end{align}}
+
+\lt{由第二式可直接解出碰撞后的姿态角速度跃变解析式：}
+\lt{\begin{align}
+M(q^-)\dot q^+ = M(q^-)\dot q^- + J_{cm}^{T}(q^-)\dot{\boldsymbol{p}}^-,
+\end{align}}
+\lt{\begin{align}
+\dot q^+ = \dot q^- + M^{-1}(q^-)J_{cm}^{T}(q^-)\dot{\boldsymbol{p}}^-.
+\end{align}}
+
+\lt{上式表明，在低杆抓握冲击发生后，碰撞前的手爪平移速度将通过耦合矩阵 $J_{cm}(q^-)$ 瞬时转换为系统内部的姿态角速度增量。该式给出了碰撞前后姿态速度之间的显式解析映射，是后续进行混杂系统状态重置的核心结果。}
+
+\vspace{0.5em}
+\lt{\textbf{5. 接触冲量的闭式表达}}
+
+\lt{进一步地，将上述速度跃变表达式代回平移子空间方程，可得低杆对手爪施加的接触冲量为}
+\lt{\begin{align}
+\Lambda
+&=
+\left[
+-M_{total}I_{2\times2}
++J_{cm}(q^-)M^{-1}(q^-)J_{cm}^{T}(q^-)
+\right]
+\dot{\boldsymbol{p}}^- \notag \\
+&=
+-\left[
+M_{total}I_{2\times2}
+-J_{cm}(q^-)M^{-1}(q^-)J_{cm}^{T}(q^-)
+\right]
+\dot{\boldsymbol{p}}^-.
+\end{align}}
+
+\lt{该结果给出了抓握冲击载荷的闭式解析表达，可用于后续手爪结构强度校核、接触冲击峰值评估以及抓握可行性判定。}
+
+\vspace{0.5em}
+\lt{\textbf{6. 低杆抓握阶段的状态重置映射（Reset Map）}}
+
+\lt{在满足 Guard 条件的前提下，系统由腾空阶段的 $5$ 自由度浮动基座模型瞬时切换至以低杆为支点的固定基座 PAA 模型。记腾空阶段状态向量为}
+\lt{\begin{align}
+X_f=
+\begin{bmatrix}
+\boldsymbol{p}^{T} &
+q^{T} &
+\dot{\boldsymbol{p}}^{T} &
+\dot q^{T}
+\end{bmatrix}^{T},
+\end{align}}
+\lt{低杆阶段状态向量为}
+\lt{\begin{align}
+X_{PAA}=
+\begin{bmatrix}
+q^{T} &
+\dot q^{T}
+\end{bmatrix}^{T}.
+\end{align}}
+
+\lt{由位置连续性与前述速度跃变关系，低杆抓握过程的混杂状态跳变映射可写为}
+\lt{\begin{align}
+X_{PAA}^{+}=\Delta\!\left(X_f^{-}\right),
+\end{align}}
+\lt{其中}
+\lt{\begin{align}
+q^{+} &= q^{-}, \\
+\dot q^{+} &= \dot q^{-} + M^{-1}(q^-)J_{cm}^{T}(q^-)\dot{\boldsymbol{p}}^-.
+\end{align}}
+
+\lt{因此，在低杆抓握发生后，系统瞬时丢弃平移自由度 $(x_0,y_0)$ 及其速度，转而以}
+\lt{\begin{align}
+X_{PAA}^{+}=
+\begin{bmatrix}
+q^{-} \\
+\dot q^{-} + M^{-1}(q^-)J_{cm}^{T}(q^-)\dot{\boldsymbol{p}}^-
+\end{bmatrix}
+\end{align}}
+\lt{作为低杆阶段固定基座动力学模型的初始状态继续向前积分，即}
+\lt{\begin{align}
+M(q)\ddot q + H(q,\dot q) + G(q) = U.
+\end{align}}
+
+\vspace{0.5em}
+\lt{需要说明的是，在当前平面三连杆理想对称模型中，不显式区分正握/反握及手掌朝向，故低杆抓握的状态重置过程中不引入额外的 $\pm\pi$ 相位补偿，也不对 $q_2$、$q_3$ 进行符号翻转。若后续需进一步考虑关节单侧限位、结构非对称性或不同抓握模式，可通过引入离散模式变量对上述混杂重置映射作进一步扩展。}
+
+\vspace{0.5em}
+\lt{综上，结合前述高杆阶段固定基座 PAA 模型、腾空阶段浮动基座模型以及本节所建立的低杆抓握冲击与状态重置映射，便可形成适用于高低杠 Park 空翻过程的连续--离散混杂动力学建模框架，为后续轨迹规划、抓握时机设计及混杂控制器构造奠定统一的数学基础。}
+
+
+\vspace{0.8em}
+\textbf{低杆抓握成功判定与抓稳阈值建模}
+
+\lt{基于前述低杆抓握冲击模型、接触冲量闭式表达以及状态重置映射，可进一步对“机器人在接触低杆后是否抓稳”建立一个面向混杂系统切换的二值判定准则。需要强调的是，当前阶段仍将手部抽象为理想铰接抓握，而不进一步引入夹爪局部接触、柔性形变与摩擦锥等精细模型。因此，本文所构造的抓稳判定主要服务于：在满足低杆接触事件触发后，决定系统是否执行低杆抓握阶段的 Reset Map。}
+
+\vspace{0.5em}
+\lt{\textbf{1. 预抓稳判定：接触成立与姿态可抓}}
+
+\lt{首先，前文已给出低杆抓握的几何接触条件与方向性判据，即}
+\lt{\begin{align}
+\phi(\boldsymbol{p}^-) = 0,
+\qquad
+(\boldsymbol{p}^- - \boldsymbol{p}_L)^T \dot{\boldsymbol{p}}^- < 0.
+\end{align}}
+\lt{该条件保证手爪到达低杆接触面，且碰撞前瞬时速度沿接触法向指向接触面内部，从而排除离开接触面、数值穿透或重复触发等非物理情形。}
+
+\lt{进一步地，为避免出现“虽然触碰到低杆，但机器人构型并不适合完成有效抓握”的情况，引入碰撞前姿态的可抓取窗口集合}
+\lt{\begin{align}
+\mathcal{Q}_{\mathrm{catch}}
+=
+\left\{
+q^- \in \mathbb{R}^{3}
+\;\middle|\;
+q_1^{\min}\le q_1^- \le q_1^{\max},\;
+q_2^{\min}\le q_2^- \le q_2^{\max},\;
+q_3^{\min}\le q_3^- \le q_3^{\max}
+\right\}.
+\end{align}}
+\lt{其中，$q_i^{\min}$ 与 $q_i^{\max}$ 为第 $i$ 个关节在低杆抓握瞬间的允许姿态边界参数。需要说明的是，此处采用的是最简的区间型可抓取窗口；若后续需考虑关节间耦合约束、姿态非凸可行域或不同抓握模式的差异，亦可将其推广为一般形式的集合约束。}
+
+\lt{据此，定义接触与姿态共同构成的预抓稳二值判定函数为}
+\lt{\begin{align}
+\chi_{\mathrm{pre}}=
+\begin{cases}
+1, & \phi(\boldsymbol{p}^-)=0,\; (\boldsymbol{p}^- - \boldsymbol{p}_L)^T \dot{\boldsymbol{p}}^- < 0,\; q^- \in \mathcal{Q}_{\mathrm{catch}},\\[0.4em]
+0, & \text{否则}.
+\end{cases}
+\end{align}}
+\lt{其中，$\chi_{\mathrm{pre}}=1$ 表示系统在几何与运动学意义下具备抓住低杆的基本条件，但尚未判断接触冲击是否过大。}
+
+\vspace{0.5em}
+\lt{\textbf{2. 冲击不过载判定：基于接触冲量与角速度跃变的联合阈值}}
+
+\lt{即便满足预抓稳条件，若碰撞瞬间的接触冲量过大，仍可能导致低杆抓握失败。因此，在当前理想铰接抓握抽象下，将前述闭式接触冲量}
+\lt{\begin{align}
+\Lambda=
+-\left[
+M_{total}I_{2\times2}
+-J_{cm}(q^-)M^{-1}(q^-)J_{cm}^{T}(q^-)
+\right]
+\dot{\boldsymbol{p}}^-
+\end{align}}
+\lt{作为衡量抓握冲击强度的核心变量，并定义其等效冲量大小为}
+\lt{\begin{align}
+I_{\Lambda}=\|\Lambda\|_{2}.
+\end{align}}
+
+\lt{考虑到当前尚未引入手爪局部结构参数与详细接触刚度参数，本文第一版抓稳阈值不直接采用固定常数型冲量上限，而采用随碰撞前入射状态自适应缩放的比例型冲量阈值：}
+\lt{\begin{align}
+\Lambda_{\max}^{(0)} = \kappa\, M_{total}\,\|\dot{\boldsymbol{p}}^-\|_{2},
+\qquad
+0<\kappa<1,
+\end{align}}
+\lt{其中 $\kappa$ 为无量纲安全系数。该阈值的物理意义在于：以系统在抓握前瞬间的特征平移动量 $M_{total}\|\dot{\boldsymbol{p}}^-\|_{2}$ 作为冲击尺度，并以 $\kappa$ 对其进行保守缩放，从而在缺乏结构参数的条件下给出一个与入射速度相匹配的等效冲量上限。}
+
+\lt{除接触冲量外，碰撞后姿态角速度的瞬时跃变同样能够表征抓握是否过于剧烈。由前文碰撞后姿态角速度跃变解析式}
+\lt{\begin{align}
+\dot q^+ = \dot q^- + M^{-1}(q^-)J_{cm}^{T}(q^-)\dot{\boldsymbol{p}}^-,
+\end{align}}
+\lt{可定义各关节的角速度跃变量为}
+\lt{\begin{align}
+\Delta \dot q_i = \dot q_i^+ - \dot q_i^-,
+\qquad i\in\{1,2,3\}.
+\end{align}}
+
+\lt{进一步引入各关节允许的角速度跃变上限}
+\lt{\begin{align}
+|\Delta \dot q_i| \le \Delta \dot q_{i,\max},
+\qquad i\in\{1,2,3\},
+\end{align}}
+\lt{其中 $\Delta \dot q_{i,\max}$ 为碰撞瞬间第 $i$ 个关节允许承受的最大角速度突变量。该约束可有效抑制由于冲击过强所导致的“甩鞭效应”、数值发散或碰撞后姿态立即失稳等现象。}
+
+\lt{综上，定义冲击不过载二值判定函数为}
+\lt{\begin{align}
+\chi_{\Lambda}=
+\begin{cases}
+1, & \|\Lambda\|_{2}\le \Lambda_{\max}^{(0)},\ \text{且}\ |\Delta \dot q_i| \le \Delta \dot q_{i,\max},\ i=1,2,3,\\[0.4em]
+0, & \text{否则}.
+\end{cases}
+\end{align}}
+
+\vspace{0.5em}
+\lt{\textbf{3. 第一版抓稳阈值的二值判定函数}}
+
+\lt{基于上述预抓稳条件与冲击不过载条件，可将低杆抓握成功的第一版二值判定统一写为}
+\lt{\begin{align}
+\chi_{\mathrm{catch}} = \chi_{\mathrm{pre}} \cdot \chi_{\Lambda}.
+\end{align}}
+
+\lt{等价地，其显式形式可写为}
+\lt{\begin{align}
+\chi_{\mathrm{catch}}=
+\begin{cases}
+1, & \phi(\boldsymbol{p}^-)=0,\; (\boldsymbol{p}^- - \boldsymbol{p}_L)^T \dot{\boldsymbol{p}}^- < 0,\; q^- \in \mathcal{Q}_{\mathrm{catch}}, \\[0.3em]
+& \|\Lambda\|_{2}\le \kappa\, M_{total}\,\|\dot{\boldsymbol{p}}^-\|_{2}, \\[0.3em]
+& |\dot q_i^+ - \dot q_i^-| \le \Delta \dot q_{i,\max},\quad i=1,2,3, \\[0.6em]
+0, & \text{否则}.
+\end{cases}
+\end{align}}
+\lt{其中，$\chi_{\mathrm{catch}}=1$ 表示本次低杆接触被判定为“抓稳成功”，系统执行前述低杆抓握阶段的状态重置映射，并切换至固定基座 PAA 模式继续积分；而当 $\chi_{\mathrm{catch}}=0$ 时，则判定为“抓握失败”或“未抓稳”，系统不执行成功抓握对应的 Reset Map。}
+
+\vspace{0.5em}
+\lt{\textbf{4. 阈值参数的工程释义与第一版使用建议}}
+
+\lt{在当前尚未给定手爪局部结构参数、杆--手局部接触模型及详细材料强度参数的前提下，参数 $\kappa$ 与 $\Delta \dot q_{i,\max}$ 应被视为需要进一步标定的工程判定参数，而非固定不变的物理常数。其中，$\kappa$ 主要刻画允许的等效接触冲量占特征平移动量的比例；$\Delta \dot q_{i,\max}$ 则主要刻画碰撞后关节允许承受的角速度突变程度。}
+
+\lt{对于第一版数值仿真，可采用保守的参数扫描或经验初始化方式对上述阈值进行选取。例如，可先给定 $\kappa$ 的一个中等偏保守范围，并结合仿真中成功抓握样本对 $\Delta \dot q_{i,\max}$ 进行迭代修正，从而在缺乏结构细节的条件下构建一个既具有清晰物理意义、又便于数值实现的抓稳成功判据。后续若获得更详细的手爪承载能力、关节瞬时峰值响应或接触实验数据，则可进一步将上述比例型阈值替换为更精细的定量结构冲量上限。}
+
+\vspace{0.5em}
+\lt{至此，结合前述低杆抓握 Guard Condition、代数冲量模型、状态重置映射以及本节所给出的抓稳阈值二值判定，便可在高低杠 Park 空翻的混杂动力学自动机中进一步区分“成功抓握”和“抓握失败”两类离散事件，从而为后续开展脱手时机优化、腾空轨迹规划以及抓握成功率评估提供统一且可实现的数学基础。}
+
+
+\vspace{0.8em}
+\textbf{高杆脱手时机判定与腾空轨迹的最优控制模型}
+
+\lt{在完成低杆抓握冲击与抓稳判定的建模后，为实现高低杠 Park 空翻的完整物理闭环，需进一步对高杆摆起阶段的“脱手时机”以及腾空阶段的“轨迹规划”进行严谨的数学形式化。结合体操生物力学中关于“无重状态（即单杠对人体无径向拉力与顶力）”的最佳脱手经验，本文基于多刚体动力学模型，将脱手过程抽象为带有零径向约束力的流形跨越事件，并构建从脱手至抓杠的端到端混杂最优控制问题（Hybrid OCP）。}
+
+\vspace{0.5em}
+\lt{\textbf{1. 系统总质心运动学映射}}
+
+\lt{设高杆在惯性坐标系中位于原点 $(0,0)$。利用前述方案 A 中定义的相对手爪静力矩 $S_x(q), S_y(q)$ 以及接触雅可比矩阵 $J_{cm}(q)$，系统总质心在惯性系下的绝对坐标 $\boldsymbol{p}_c = \begin{bmatrix}x_c & y_c\end{bmatrix}^T$ 与平移速度 $\boldsymbol{v}_c = \begin{bmatrix}\dot{x}_c & \dot{y}_c\end{bmatrix}^T$ 可解析映射为：}
+\lt{\begin{align}
+\boldsymbol{p}_c(q) &= \frac{1}{M_{total}} \begin{bmatrix} S_x(q) \\ S_y(q) \end{bmatrix}, \\
+\boldsymbol{v}_c(q, \dot{q}) &= \frac{1}{M_{total}} J_{cm}(q) \dot{q}.
+\end{align}}
+
+\lt{进一步求导，并结合平移子系统科里奥利与向心力项 $H_p(q, \dot{q}) = \dot{J}_{cm}(q)\dot{q}$，可得总质心加速度为：}
+\lt{\begin{align}
+\boldsymbol{a}_c(q, \dot{q}, \ddot{q}) &= \frac{1}{M_{total}} \left( J_{cm}(q)\ddot{q} + H_p(q, \dot{q}) \right).
+\end{align}}
+
+\vspace{0.5em}
+\lt{\textbf{2. 径向约束力与“无重状态”脱手触发条件}}
+
+\lt{在固定基座的高杆摆起阶段，系统受到的全局外力仅包含总重力 $\boldsymbol{G}_{sys} = \begin{bmatrix}0 & -M_{total}g\end{bmatrix}^T$ 与高杆对手爪施加的约束反力 $\boldsymbol{F}_{bar} = \begin{bmatrix}F_x & F_y\end{bmatrix}^T$。由牛顿第二定律 $\boldsymbol{F}_{bar} + \boldsymbol{G}_{sys} = M_{total}\boldsymbol{a}_c$ 可得：}
+\lt{\begin{align}
+\boldsymbol{F}_{bar}(q, \dot{q}, \ddot{q}) &= J_{cm}(q)\ddot{q} + H_p(q, \dot{q}) + \begin{bmatrix}0 \\ M_{total}g\end{bmatrix}.
+\end{align}}
+
+\lt{定义从高杆原点指向总质心的单位径向向量为 $\boldsymbol{e}_r = \boldsymbol{p}_c / \|\boldsymbol{p}_c\|_2$。将总约束反力投影至该径向方向，即可得到高杆对机器人的径向拉力 $F_r$：}
+\lt{\begin{align}
+F_r(q, \dot{q}, \ddot{q}) &= \boldsymbol{e}_r^T \boldsymbol{F}_{bar} 
+= \frac{x_c F_x + y_c F_y}{\sqrt{x_c^2 + y_c^2}}.
+\end{align}}
+
+\lt{为最大化腾空初速度并减少脱手瞬间的力学扰动，将体育力学中的“无重状态”严格推广至多刚体动力学系统。定义高杆最佳脱手的触发事件（Guard Condition）为径向约束力过零时刻，即：}
+\lt{\begin{align}
+g_r(q, \dot{q}, \ddot{q}) &= x_c(q) F_x(q, \dot{q}, \ddot{q}) + y_c(q) F_y(q, \dot{q}, \ddot{q}) = 0.
+\end{align}}
+\lt{该脱手判定准则显式地耦合了角加速度 $\ddot{q}$，从而将机器人“制振”时的四肢挥动惯性力严格纳入了最佳脱手时机的考量之中。}
+
+\vspace{0.5em}
+\lt{\textbf{3. 腾空阶段解析映射与终端命中流形}}
+
+\lt{设系统于 $t_r$ 时刻触发脱手条件，脱手状态记为 $X_r = \begin{bmatrix} q_r^T & \dot{q}_r^T \end{bmatrix}^T$；经历飞行时间 $T_f$ 后，于 $t_c$ 时刻触及低杆，抓杠前瞬间状态记为 $X_c^- = \begin{bmatrix} q_c^T & \dot{q}_c^T \end{bmatrix}^T$。}
+
+\lt{在腾空阶段，系统总质心作理想抛物线运动。因此，$t_c$ 时刻的质心绝对坐标 $\boldsymbol{p}_c(t_c)$ 满足：}
+\lt{\begin{align}
+\boldsymbol{p}_c(t_c) &= \boldsymbol{p}_{c}(t_r) + \boldsymbol{v}_{c}(t_r) T_f - \begin{bmatrix} 0 \\ \frac{1}{2}g T_f^2 \end{bmatrix}.
+\end{align}}
+
+\lt{为保证在 $t_c$ 时刻手爪精准命中低杆，其末端坐标 $\boldsymbol{p}(t_c)$ 必须与低杆坐标 $\boldsymbol{p}_L = \begin{bmatrix}D_x & D_y\end{bmatrix}^T$ 重合。由手爪与质心的几何偏置关系 $\boldsymbol{p} = \boldsymbol{p}_c - \frac{1}{M_{total}}\begin{bmatrix}S_x & S_y\end{bmatrix}^T$，可推导出端到端的代数命中约束方程：}
+\lt{\begin{align}
+\begin{bmatrix} D_x \\ D_y \end{bmatrix} 
+&= 
+\frac{1}{M_{total}} \left( 
+\begin{bmatrix} S_x(q_r) \\ S_y(q_r) \end{bmatrix} 
++ J_{cm}(q_r) \dot{q}_r T_f 
+- \begin{bmatrix} S_x(q_c) \\ S_y(q_c) \end{bmatrix} 
+\right) 
+- \begin{bmatrix} 0 \\ \frac{1}{2}g T_f^2 \end{bmatrix}.
+\end{align}}
+\lt{该流形方程不仅将脱手状态、飞行时间与抓杠姿态直接绑定，更有效解耦了平移运动与腾空阶段的复杂姿态演化。}
+
+
+\vspace{0.5em}
+\lt{\textbf{3.1 角动量守恒与空中翻转的姿态演化}}
+
+\lt{上述流形方程仅保证了手爪在空间位置上的宏观命中。然而，Park 空翻的核心难点不仅在于“飞抵”低杆，更在于躯干必须在有限的飞行时间 $T_f$ 内完成空中翻转（Somersault），以确保在 $t_c$ 瞬间达到适宜抓握的终端姿态 $q_c \in \mathcal{Q}_{\mathrm{catch}}$。}
+
+\lt{在腾空阶段，重力对系统总质心的力臂为零，系统不受任何外力矩作用，因此绕总质心的系统角动量 $L_{sys}$ 严格守恒：}
+\lt{\begin{align}
+L_{sys}(q_c, \dot{q}_c) = L_{sys}(q_r, \dot{q}_r) = \mathrm{const}.
+\end{align}}
+
+\lt{这一守恒律构成了空中翻转的惯性基础。在此基础上，机器人的内部姿态演化完全由前述的“方案 B：基于 Schur 补的 $3$ 自由度降维模型”所支配，即}
+\lt{\begin{align}
+\bar M(q)\ddot q + \bar H(q,\dot q) = \begin{bmatrix}0\\ \tau_2(t)\\ \tau_3(t)\end{bmatrix}, \quad t \in [t_r, t_c].
+\end{align}}
+
+\lt{这意味着，抓杠前瞬间的最终姿态与角速度 $X_c^- = \begin{bmatrix} q_c^T & \dot{q}_c^T \end{bmatrix}^T$，本质上是脱手初值 $X_r$ 结合腾空阶段主动关节力矩 $\tau_{\mathrm{flight}}(t) = [\tau_2(t), \tau_3(t)]^T$ 持续积分的动力学结果。通过在空中主动调节 $q_2, q_3$（如收腿、展体），机器人能够动态改变系统的等效惯量矩阵 $\bar M(q)$，从而在总角动量守恒的前提下控制身体的翻转角速度，最终实现手爪对低杆的最佳姿态逼近。}
+
+
+\vspace{0.5em}
+\lt{\textbf{4. Park 空翻的混杂最优控制问题（OCP）建构}}
+
+\lt{结合前文推导的连续动力学与离散状态重置映射，高低杠 Park 空翻的全局轨迹规划可转化为一个多点边界值最优控制问题。}
+
+\lt{定义决策变量包含：高杆脱手状态 $X_r$、飞行时间 $T_f$、腾空段控制输入轨迹 $\tau_{\mathrm{flight}}(t)$（$t \in [t_r, t_c]$）以及高杆摆起段控制输入轨迹 $\tau_{\mathrm{swing}}(t)$。设优化目标为极小化整体控制能耗及低杆抓握冲击强度，即}
+\lt{\begin{align}
+\min \quad J = \int_{0}^{t_r} \|\tau_{\mathrm{swing}}(t)\|_W^2 \,dt + \int_{t_r}^{t_c} \|\tau_{\mathrm{flight}}(t)\|_W^2 \,dt + w_{\Lambda}\|\Lambda\|_2^2.
+\end{align}}
+
+\lt{该优化问题需满足以下核心物理约束：}
+\lt{\begin{itemize}
+\item[1)] \textbf{高杆阶段动力学}：系统状态依固定基座 PAA 模型演化至 $X_r$；
+\item[2)] \textbf{脱手时机约束}：脱手时刻 $t_r$ 满足径向拉力过零事件 $g_r(X_r, \ddot{q}_r) = 0$；
+\item[3)] \textbf{腾空阶段动力学}：姿态轨迹依“方案 B：基于 Schur 补的 $3$ 自由度降维模型”积分，且绕质心角动量守恒；
+\item[4)] \textbf{命中与抓稳约束}：终端状态满足位置命中方程，且预抓稳判定与冲击不过载判定函数满足 $\chi_{\mathrm{catch}} = 1$；
+\item[5)] \textbf{致动边界约束}：所有时刻的驱动力矩与关节角度均在电机物理限位与机构防干涉边界内。
+\end{itemize}}
+
+\lt{至此，从高杆摆起的连续控制、满足“无重状态”的脱手跃变、空中抛物线映射到命中低杆后的冲击分析与状态重置，高低杠 Park 空翻的完整数学理论与混杂自动机模型已全面建立。此框架为后续运用非线性规划（NLP）求解器生成最优参考轨迹奠定了严格的力学基础。}
