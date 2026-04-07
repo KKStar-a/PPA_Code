@@ -43,7 +43,7 @@ class EnvParams:
 
     # Bar locations
     high_bar_pos: np.ndarray = field(default_factory=lambda: np.array([0.0, 2.6], dtype=float))
-    low_bar_pos: np.ndarray = field(default_factory=lambda: np.array([1.6, 1.2], dtype=float))
+    low_bar_pos: np.ndarray = field(default_factory=lambda: np.array([1.0, 1.2], dtype=float))
     catch_radius: float = 0.18
 
     # Catch thresholds (MVP simplification)
