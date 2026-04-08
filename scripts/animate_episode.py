@@ -16,10 +16,11 @@ if str(ROOT) not in sys.path:
 
 from envs.rendering import MODE_NAME, get_link_points
 from envs.three_link_env import ThreeLinkHighLowBarEnv
+from scripts.demo_rollout import demo_action
 from scripts.scripted_rollout import scripted_action
 
 
-def collect_episode(seed: int, max_steps: int, scripted: bool, release_step: int) -> dict:
+def collect_episode(seed: int, max_steps: int, scripted: bool, demo: bool, release_step: int) -> dict:
     env = ThreeLinkHighLowBarEnv(seed=seed)
     obs, info = env.reset()
 
@@ -52,7 +53,9 @@ def collect_episode(seed: int, max_steps: int, scripted: bool, release_step: int
     truncated = False
     step = 0
     while not (terminated or truncated) and step < max_steps:
-        if scripted:
+        if demo:
+            action = demo_action(step, obs, info, env.params.tau_max, min_release_step=release_step)
+        elif scripted:
             action = scripted_action(step, release_step=release_step)
         else:
             action = env.action_space.sample()
@@ -130,8 +133,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--scripted", action="store_true", help="use scripted rollout instead of random")
+    parser.add_argument("--demo", action="store_true", help="use demo heuristic controller")
     parser.add_argument("--max-steps", type=int, default=300)
-    parser.add_argument("--release-step", type=int, default=6)
+    parser.add_argument("--release-step", type=int, default=35)
     parser.add_argument("--save-path", type=str, default=None, help="optional output path (.gif or .mp4)")
     args = parser.parse_args()
 
@@ -139,6 +143,7 @@ def main() -> None:
         seed=args.seed,
         max_steps=args.max_steps,
         scripted=args.scripted,
+        demo=args.demo,
         release_step=args.release_step,
     )
     animate_episode(data, save_path=args.save_path)
