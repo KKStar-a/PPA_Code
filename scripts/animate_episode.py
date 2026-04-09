@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
 
 from envs.rendering import MODE_NAME, get_link_points
 from envs.three_link_env import ThreeLinkHighLowBarEnv
-from scripts.demo_rollout import demo_action
+from scripts.demo_rollout import analyze_demo_records, demo_action, print_demo_summary
 from scripts.scripted_rollout import scripted_action
 
 
@@ -25,6 +25,17 @@ def collect_episode(seed: int, max_steps: int, scripted: bool, demo: bool, relea
     obs, info = env.reset()
 
     frames: list[dict] = []
+    records = {
+        "step": [],
+        "mode": [],
+        "q": [],
+        "p": [],
+        "distance_to_low_bar": [],
+        "released": [],
+        "contact": [],
+        "catch_ok": [],
+        "terminated_by": [],
+    }
 
     def append_frame(step: int, reward: float, action: np.ndarray | None, obs: np.ndarray, info: dict):
         mode = int(info["mode"])
@@ -47,6 +58,16 @@ def collect_episode(seed: int, max_steps: int, scripted: bool, demo: bool, relea
             }
         )
 
+        records["step"].append(step)
+        records["mode"].append(mode)
+        records["q"].append(q.tolist())
+        records["p"].append(p.tolist())
+        records["distance_to_low_bar"].append(float(info["distance_to_low_bar"]))
+        records["released"].append(bool(info["released"]))
+        records["contact"].append(bool(info["contact"]))
+        records["catch_ok"].append(bool(info["catch_ok"]))
+        records["terminated_by"].append(info["terminated_by"])
+
     append_frame(step=0, reward=0.0, action=None, obs=obs, info=info)
 
     terminated = False
@@ -67,10 +88,11 @@ def collect_episode(seed: int, max_steps: int, scripted: bool, demo: bool, relea
     return {
         "frames": frames,
         "params": env.params,
+        "records": records,
     }
 
 
-def animate_episode(data: dict, save_path: str | None = None) -> None:
+def animate_episode(data: dict, save_path: str | None = None, trail: bool = False, summary: dict | None = None) -> None:
     frames = data["frames"]
     params = data["params"]
 
@@ -78,7 +100,7 @@ def animate_episode(data: dict, save_path: str | None = None) -> None:
 
     line_links, = ax.plot([], [], "-o", lw=3, color="tab:blue", markersize=5)
     support_pt, = ax.plot([], [], "o", color="tab:purple", markersize=7, label="support/grip")
-    traj_line, = ax.plot([], [], color="tab:cyan", alpha=0.35, lw=1.2, label="support trajectory")
+    traj_line, = ax.plot([], [], color="tab:cyan", alpha=0.35, lw=1.4, label="support trajectory")
 
     ax.scatter([params.high_bar_pos[0]], [params.high_bar_pos[1]], c="tab:red", s=90, marker="o", label="high bar")
     ax.scatter([params.low_bar_pos[0]], [params.low_bar_pos[1]], c="tab:green", s=90, marker="x", label="low bar")
@@ -100,15 +122,23 @@ def animate_episode(data: dict, save_path: str | None = None) -> None:
         line_links.set_data(points[:, 0], points[:, 1])
         support_pt.set_data([sx], [sy])
 
-        support_hist_x.append(float(sx))
-        support_hist_y.append(float(sy))
-        traj_line.set_data(support_hist_x, support_hist_y)
+        if trail:
+            support_hist_x.append(float(sx))
+            support_hist_y.append(float(sy))
+            traj_line.set_data(support_hist_x, support_hist_y)
+        else:
+            traj_line.set_data([], [])
 
         title = (
             f"step={frame['step']} | mode={frame['mode_name']} | reward={frame['reward']:+.3f} | "
             f"dist={frame['distance']:.3f} | released={frame['released']} "
             f"contact={frame['contact']} catch_ok={frame['catch_ok']}"
         )
+        if summary is not None:
+            title += (
+                f"\nrel_step={summary['release_step']} swing={summary['q1_pre_release_amp']:.3f} "
+                f"min_dist={summary['min_distance_to_low_bar']:.3f}"
+            )
         ax.set_title(title)
 
         return line_links, support_pt, traj_line
@@ -136,6 +166,7 @@ def main() -> None:
     parser.add_argument("--demo", action="store_true", help="use demo heuristic controller")
     parser.add_argument("--max-steps", type=int, default=300)
     parser.add_argument("--release-step", type=int, default=35)
+    parser.add_argument("--trail", action="store_true", help="show support-point trajectory trail")
     parser.add_argument("--save-path", type=str, default=None, help="optional output path (.gif or .mp4)")
     args = parser.parse_args()
 
@@ -146,7 +177,13 @@ def main() -> None:
         demo=args.demo,
         release_step=args.release_step,
     )
-    animate_episode(data, save_path=args.save_path)
+
+    summary = None
+    if args.demo:
+        summary = analyze_demo_records(data["records"])
+        print_demo_summary(summary)
+
+    animate_episode(data, save_path=args.save_path, trail=args.trail, summary=summary)
 
 
 if __name__ == "__main__":
