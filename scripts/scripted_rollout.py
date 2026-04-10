@@ -60,6 +60,8 @@ def run_scripted_episode(seed: int = 7, max_steps: int = 500, release_step: int 
         "step": [],
         "mode": [],
         "distance_to_low_bar": [],
+        "q": [],
+        "dq": [],
         "released": [],
         "contact": [],
         "catch_ok": [],
@@ -87,6 +89,8 @@ def run_scripted_episode(seed: int = 7, max_steps: int = 500, release_step: int 
         records["step"].append(step)
         records["mode"].append(int(info["mode"]))
         records["distance_to_low_bar"].append(dist)
+        records["q"].append(obs[1:4].tolist())
+        records["dq"].append(obs[4:7].tolist())
         records["released"].append(bool(info["released"]))
         records["contact"].append(bool(info["contact"]))
         records["catch_ok"].append(bool(info["catch_ok"]))

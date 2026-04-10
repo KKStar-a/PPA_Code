@@ -16,17 +16,14 @@ if str(ROOT) not in sys.path:
 
 from envs.rendering import MODE_NAME, get_link_points
 from envs.three_link_env import ThreeLinkHighLowBarEnv
-try:
-    from scripts.demo_rollout import (
-        CONTACT_BASELINE_CONFIG,
-        analyze_demo_records,
-        demo_action,
-        print_demo_summary,
-    )
-    from scripts.scripted_rollout import apply_scripted_warm_start, scripted_action
-except ModuleNotFoundError:  # direct script fallback
-    from demo_rollout import CONTACT_BASELINE_CONFIG, analyze_demo_records, demo_action, print_demo_summary
-    from scripted_rollout import apply_scripted_warm_start, scripted_action
+from scripts.demo_rollout import (
+    CONTACT_BASELINE_CONFIG,
+    analyze_demo_records,
+    demo_action,
+    print_demo_summary,
+)
+from scripts.guard_diagnosis import compute_guard_metrics
+from scripts.scripted_rollout import apply_scripted_warm_start, scripted_action
 
 
 def collect_episode(
@@ -49,7 +46,9 @@ def collect_episode(
         "step": [],
         "mode": [],
         "q": [],
+        "dq": [],
         "p": [],
+        "dp": [],
         "distance_to_low_bar": [],
         "released": [],
         "contact": [],
@@ -81,7 +80,9 @@ def collect_episode(
         records["step"].append(step)
         records["mode"].append(mode)
         records["q"].append(q.tolist())
+        records["dq"].append(np.array(obs[4:7], dtype=float).tolist())
         records["p"].append(p.tolist())
+        records["dp"].append(np.array(obs[9:11], dtype=float).tolist())
         records["distance_to_low_bar"].append(float(info["distance_to_low_bar"]))
         records["released"].append(bool(info["released"]))
         records["contact"].append(bool(info["contact"]))
@@ -233,7 +234,6 @@ def main() -> None:
             f"contact={summary['contact']} | catch_ok={summary['catch_ok']}"
         )
     elif args.contact_baseline and args.scripted:
-        # Scripted contact baseline summary.
         d = np.array(data["records"]["distance_to_low_bar"], dtype=float)
         min_d = float(np.min(d)) if d.size else float("nan")
         release_steps = [i for i, f in enumerate(data["records"]["released"]) if f]
@@ -241,6 +241,14 @@ def main() -> None:
         c = any(data["records"]["contact"])
         ck = any(data["records"]["catch_ok"])
         print(f"best release_step={rel} | best min distance={min_d:.3f} | contact={c} | catch_ok={ck}")
+
+        g = compute_guard_metrics(data["records"], data["params"])
+        at = g["at_min_phi"]
+        print(
+            f"guard diag: min_phi={g['min_phi']:.3f} (step {g['min_phi_step']}) | "
+            f"min_dist_step={g['min_dist_step']} | inward={at['inward']:.3f} | "
+            f"failed={g['failed_subconditions_at_min_phi']}"
+        )
 
     animate_episode(data, save_path=args.save_path, trail=args.trail, summary=summary)
 
