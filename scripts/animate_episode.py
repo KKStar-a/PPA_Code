@@ -103,6 +103,7 @@ def collect_episode(
     terminated = False
     truncated = False
     step = 0
+    cumulative_reward = 0.0
     while not (terminated or truncated) and step < max_steps:
         if ppo_model is not None:
             action, _ = ppo_model.predict(obs, deterministic=True)
@@ -123,7 +124,9 @@ def collect_episode(
 
         obs, reward, terminated, truncated, info = env.step(action)
         step += 1
+        cumulative_reward += float(reward)
         append_frame(step=step, reward=reward, action=action, obs=obs, info=info)
+        frames[-1]["cumulative_reward"] = cumulative_reward
 
     return {
         "frames": frames,
@@ -171,7 +174,7 @@ def animate_episode(data: dict, save_path: str | None = None, trail: bool = Fals
 
         title = (
             f"step={frame['step']} | mode={frame['mode_name']} | reward={frame['reward']:+.3f} | "
-            f"dist={frame['distance']:.3f} | released={frame['released']} "
+            f"cum_reward={frame.get('cumulative_reward', 0.0):+.3f} | dist={frame['distance']:.3f} | released={frame['released']} "
             f"contact={frame['contact']} catch_ok={frame['catch_ok']}"
         )
         if summary is not None:

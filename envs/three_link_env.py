@@ -38,10 +38,16 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
     TERMINAL_SUCCESS = 10
     TERMINAL_FAIL = 11
 
-    def __init__(self, params: EnvParams | None = None, seed: int | None = None):
+    def __init__(
+        self,
+        params: EnvParams | None = None,
+        seed: int | None = None,
+        reward_profile: str = "shaped_v2",
+    ):
         super().__init__()
         self.params = params if params is not None else DEFAULT_PARAMS
         self.np_random = np.random.default_rng(seed)
+        self.reward_profile = reward_profile
 
         self.action_space = spaces.Box(
             low=np.array([-self.params.tau_max, -self.params.tau_max, -1.0], dtype=np.float32),
@@ -59,6 +65,7 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
         self.step_count = 0
         self.prev_distance = 0.0
         self.last_event: dict[str, Any] = {}
+        self.last_reward_terms: dict[str, float] = {}
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         if seed is not None:
@@ -184,6 +191,7 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
             distance=distance,
             control=np.array([tau2, tau3]),
             mode=self.mode,
+            released=released,
             contact=contact,
             catch_ok=catch_ok,
             success=success,
@@ -201,6 +209,7 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
             "impulse_norm": impulse_norm,
             "dq_jump": dq_jump,
         }
+        self.last_reward_terms["total"] = reward
 
         obs = self._build_obs()
         info = self._build_info()
@@ -243,6 +252,7 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
         distance: float,
         control: np.ndarray,
         mode: int,
+        released: bool,
         contact: bool,
         catch_ok: bool,
         success: bool,
@@ -250,23 +260,59 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
         impulse_norm: float,
     ) -> float:
         progress = self.prev_distance - distance
-        r_distance = 1.5 * progress
-        r_flight_progress = 2.5 * progress if mode == self.FLIGHT else 0.0
-        # Candidate zone around low bar to encourage near-contact behavior before strict contact.
-        r_candidate_zone = 0.35 if distance < (self.params.catch_radius + 0.15) else 0.0
-        r_ctrl = 0.001 * float(np.sum(control**2))
+        if self.reward_profile == "legacy_v1":
+            r_distance = 2.0 * progress if mode == self.FLIGHT else 0.2 * progress
+            r_flight_progress = 0.0
+            r_candidate_zone = 0.0
+            r_release = 0.0
+            r_time = 0.0
+            r_ctrl = 0.001 * float(np.sum(control**2))
+            r_contact = 5.0 if contact else 0.0
+            r_catch = 40.0 if catch_ok else 0.0
+            r_success = 100.0 if success else 0.0
+            r_oob = -25.0 if out_of_bounds else 0.0
+            r_impulse = -0.02 * impulse_norm
+        else:
+            # Shaped PPO phase-2 profile: encourage approach + release + near-contact before strict catch.
+            r_distance = 4.0 * progress
+            r_flight_progress = 4.0 * progress if mode == self.FLIGHT else 0.0
+            r_candidate_zone = 0.4 if distance < (self.params.catch_radius + 0.18) else 0.0
+            r_release = 1.5 if (released and self.step_count < 90) else 0.0
+            r_time = -0.01 if mode == self.HIGH_BAR else 0.0
+            # Keep control cost but reduce suppression of swing exploration.
+            r_ctrl = 0.0002 * float(np.sum(control**2))
+            r_contact = 8.0 if contact else 0.0
+            r_catch = 45.0 if catch_ok else 0.0
+            r_success = 100.0 if success else 0.0
+            r_oob = -25.0 if out_of_bounds else 0.0
+            r_impulse = -0.01 * impulse_norm
 
-        reward = r_distance + r_flight_progress + r_candidate_zone - r_ctrl
-        if contact:
-            reward += 6.0
-        if catch_ok:
-            reward += 40.0
-        if success:
-            reward += 100.0
-        if out_of_bounds:
-            reward -= 25.0
-
-        reward -= 0.02 * impulse_norm
+        reward = (
+            r_distance
+            + r_flight_progress
+            + r_candidate_zone
+            + r_release
+            + r_time
+            - r_ctrl
+            + r_contact
+            + r_catch
+            + r_success
+            + r_oob
+            + r_impulse
+        )
+        self.last_reward_terms = {
+            "distance": float(r_distance),
+            "flight_progress": float(r_flight_progress),
+            "candidate_zone": float(r_candidate_zone),
+            "release_bonus": float(r_release),
+            "time_penalty": float(r_time),
+            "control_cost": float(-r_ctrl),
+            "contact_bonus": float(r_contact),
+            "catch_bonus": float(r_catch),
+            "success_bonus": float(r_success),
+            "out_of_bounds_penalty": float(r_oob),
+            "impulse_penalty": float(r_impulse),
+        }
         return float(reward)
 
     def _state_out_of_bounds(self) -> bool:
@@ -290,6 +336,8 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
             "impulse_norm": float(self.last_event.get("impulse_norm", 0.0)),
             "dq_jump": np.asarray(self.last_event.get("dq_jump", np.zeros(3))).copy(),
             "terminated_by": self.last_event.get("terminated_by", None),
+            "reward_terms": dict(self.last_reward_terms),
+            "reward_profile": self.reward_profile,
             "params": asdict(self.params),
         }
         return info
