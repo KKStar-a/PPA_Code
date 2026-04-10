@@ -30,7 +30,16 @@ class ResetStrategyWrapper(gym.Wrapper):
         return self.env.reset(options=options, **kwargs)
 
 
-def run_policy_eval(model, *, episodes: int, seed: int, reset_strategy: str, reward_profile: str) -> dict:
+def run_policy_eval(
+    model,
+    *,
+    episodes: int,
+    seed: int,
+    reset_strategy: str,
+    reward_profile: str,
+    release_curriculum: bool,
+    curriculum_min_release_step: int,
+) -> dict:
     min_distances = []
     release_count = 0
     contact_count = 0
@@ -39,7 +48,12 @@ def run_policy_eval(model, *, episodes: int, seed: int, reset_strategy: str, rew
     term_counter: Counter[str] = Counter()
 
     for ep in range(episodes):
-        env = ThreeLinkHighLowBarEnv(seed=seed + ep, reward_profile=reward_profile)
+        env = ThreeLinkHighLowBarEnv(
+            seed=seed + ep,
+            reward_profile=reward_profile,
+            release_curriculum=release_curriculum,
+            curriculum_min_release_step=curriculum_min_release_step,
+        )
         obs, info = env.reset(options={"reset_strategy": reset_strategy})
         done = trunc = False
         min_dist = float(info["distance_to_low_bar"])
@@ -93,7 +107,9 @@ def main() -> None:
     parser.add_argument("--log-dir", type=str, default="artifacts/ppo_logs")
     parser.add_argument("--save-path", type=str, default="artifacts/ppo_model.zip")
     parser.add_argument("--tensorboard", action="store_true", help="enable tensorboard logging (requires tensorboard)")
-    parser.add_argument("--reward-profile", choices=["legacy_v1", "shaped_v2"], default="shaped_v2")
+    parser.add_argument("--reward-profile", choices=["legacy_v1", "shaped_v2", "shaped_v3"], default="shaped_v3")
+    parser.add_argument("--release-curriculum", action="store_true", help="block very-early release attempts")
+    parser.add_argument("--curriculum-min-release-step", type=int, default=12)
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--eval-freq", type=int, default=0, help="run periodic eval every N timesteps (0=off)")
     parser.add_argument("--eval-episodes", type=int, default=5)
@@ -115,7 +131,12 @@ def main() -> None:
     save_path.parent.mkdir(parents=True, exist_ok=True)
 
     def make_env():
-        env = ThreeLinkHighLowBarEnv(seed=args.seed, reward_profile=args.reward_profile)
+        env = ThreeLinkHighLowBarEnv(
+            seed=args.seed,
+            reward_profile=args.reward_profile,
+            release_curriculum=args.release_curriculum,
+            curriculum_min_release_step=args.curriculum_min_release_step,
+        )
         env = ResetStrategyWrapper(env, reset_strategy=args.reset_strategy)
         return env
 
@@ -137,6 +158,8 @@ def main() -> None:
                 seed=args.seed + 10_000,
                 reset_strategy=args.reset_strategy,
                 reward_profile=args.reward_profile,
+                release_curriculum=args.release_curriculum,
+                curriculum_min_release_step=args.curriculum_min_release_step,
             )
             payload = {"timesteps": int(self.num_timesteps), **metrics}
             with open(self.eval_log_path, "a", encoding="utf-8") as f:
@@ -155,6 +178,8 @@ def main() -> None:
                 "device": args.device,
                 "eval_freq": args.eval_freq,
                 "eval_episodes": args.eval_episodes,
+                "release_curriculum": args.release_curriculum,
+                "curriculum_min_release_step": args.curriculum_min_release_step,
                 "save_path": str(save_path),
             },
             indent=2,
@@ -187,6 +212,8 @@ def main() -> None:
         seed=args.seed + 20_000,
         reset_strategy=args.reset_strategy,
         reward_profile=args.reward_profile,
+        release_curriculum=args.release_curriculum,
+        curriculum_min_release_step=args.curriculum_min_release_step,
     )
     print(f"final eval metrics: {final_eval}")
 

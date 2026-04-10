@@ -42,12 +42,16 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
         self,
         params: EnvParams | None = None,
         seed: int | None = None,
-        reward_profile: str = "shaped_v2",
+        reward_profile: str = "shaped_v3",
+        release_curriculum: bool = False,
+        curriculum_min_release_step: int = 12,
     ):
         super().__init__()
         self.params = params if params is not None else DEFAULT_PARAMS
         self.np_random = np.random.default_rng(seed)
         self.reward_profile = reward_profile
+        self.release_curriculum = release_curriculum
+        self.curriculum_min_release_step = int(curriculum_min_release_step)
 
         self.action_space = spaces.Box(
             low=np.array([-self.params.tau_max, -self.params.tau_max, -1.0], dtype=np.float32),
@@ -66,6 +70,10 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
         self.prev_distance = 0.0
         self.last_event: dict[str, Any] = {}
         self.last_reward_terms: dict[str, float] = {}
+        self.hb_q1_min = 0.0
+        self.hb_q1_max = 0.0
+        self.hb_handx_min = 0.0
+        self.hb_handx_max = 0.0
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         if seed is not None:
@@ -91,6 +99,10 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
 
         self.p = hand_pos_from_high_bar(self.q, self.params)
         self.dp = hand_vel_from_high_bar(self.q, self.dq, self.params)
+        self.hb_q1_min = float(self.q[0])
+        self.hb_q1_max = float(self.q[0])
+        self.hb_handx_min = float(self.p[0])
+        self.hb_handx_max = float(self.p[0])
 
         self.prev_distance = float(np.linalg.norm(self.p - self.params.low_bar_pos))
         self.last_event = {
@@ -117,6 +129,7 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
         truncated = False
         success = False
         released = False
+        early_release_blocked = False
         contact = False
         catch_ok = False
         impulse_norm = 0.0
@@ -128,10 +141,17 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
             self._integrate_joint_dynamics(ddq)
             self.p = hand_pos_from_high_bar(self.q, self.params)
             self.dp = hand_vel_from_high_bar(self.q, self.dq, self.params)
+            self.hb_q1_min = min(self.hb_q1_min, float(self.q[0]))
+            self.hb_q1_max = max(self.hb_q1_max, float(self.q[0]))
+            self.hb_handx_min = min(self.hb_handx_min, float(self.p[0]))
+            self.hb_handx_max = max(self.hb_handx_max, float(self.p[0]))
 
             if should_release(release_cmd, self._state_dict(), self.params):
-                self.mode = self.FLIGHT
-                released = True
+                if self.release_curriculum and self.step_count < self.curriculum_min_release_step:
+                    early_release_blocked = True
+                else:
+                    self.mode = self.FLIGHT
+                    released = True
 
         elif self.mode == self.FLIGHT:
             state_dot = f_flight(self._state_dict(), u, self.params)
@@ -192,6 +212,7 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
             control=np.array([tau2, tau3]),
             mode=self.mode,
             released=released,
+            early_release_blocked=early_release_blocked,
             contact=contact,
             catch_ok=catch_ok,
             success=success,
@@ -253,6 +274,7 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
         control: np.ndarray,
         mode: int,
         released: bool,
+        early_release_blocked: bool,
         contact: bool,
         catch_ok: bool,
         success: bool,
@@ -265,21 +287,50 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
             r_flight_progress = 0.0
             r_candidate_zone = 0.0
             r_release = 0.0
+            r_early_release = 0.0
             r_time = 0.0
+            r_swing = 0.0
             r_ctrl = 0.001 * float(np.sum(control**2))
             r_contact = 5.0 if contact else 0.0
             r_catch = 40.0 if catch_ok else 0.0
             r_success = 100.0 if success else 0.0
             r_oob = -25.0 if out_of_bounds else 0.0
             r_impulse = -0.02 * impulse_norm
-        else:
+        elif self.reward_profile == "shaped_v2":
             # Shaped PPO phase-2 profile: encourage approach + release + near-contact before strict catch.
             r_distance = 4.0 * progress
             r_flight_progress = 4.0 * progress if mode == self.FLIGHT else 0.0
             r_candidate_zone = 0.4 if distance < (self.params.catch_radius + 0.18) else 0.0
             r_release = 1.5 if (released and self.step_count < 90) else 0.0
             r_time = -0.01 if mode == self.HIGH_BAR else 0.0
+            r_swing = 0.0
+            r_early_release = 0.0
             # Keep control cost but reduce suppression of swing exploration.
+            r_ctrl = 0.0002 * float(np.sum(control**2))
+            r_contact = 8.0 if contact else 0.0
+            r_catch = 45.0 if catch_ok else 0.0
+            r_success = 100.0 if success else 0.0
+            r_oob = -25.0 if out_of_bounds else 0.0
+            r_impulse = -0.01 * impulse_norm
+        else:
+            # shaped_v3: reduce early-release attractor and encourage pre-release swing buildup.
+            q1_amp = self.hb_q1_max - self.hb_q1_min
+            handx_amp = self.hb_handx_max - self.hb_handx_min
+            q1_target = 0.22
+            handx_target = 0.15
+            swing_ratio = min(1.0, q1_amp / q1_target) + min(1.0, handx_amp / handx_target)
+
+            r_distance = 4.0 * progress
+            r_flight_progress = 4.0 * progress if mode == self.FLIGHT else 0.0
+            r_candidate_zone = 0.4 if distance < (self.params.catch_radius + 0.18) else 0.0
+            # Conditional release bonus: only if enough high-bar time and visible swing has developed.
+            swing_ready = (self.step_count >= 14) and (q1_amp >= q1_target) and (handx_amp >= handx_target)
+            r_release = 1.5 if (released and swing_ready) else 0.0
+            # Gentle penalty for release attempts blocked by curriculum or releasing before swing is ready.
+            r_early_release = -0.6 if early_release_blocked or (released and not swing_ready) else 0.0
+            r_time = -0.01 if mode == self.HIGH_BAR else 0.0
+            # Reward swing buildup only in HIGH_BAR before release.
+            r_swing = 0.08 * swing_ratio if mode == self.HIGH_BAR else 0.0
             r_ctrl = 0.0002 * float(np.sum(control**2))
             r_contact = 8.0 if contact else 0.0
             r_catch = 45.0 if catch_ok else 0.0
@@ -292,7 +343,9 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
             + r_flight_progress
             + r_candidate_zone
             + r_release
+            + r_early_release
             + r_time
+            + r_swing
             - r_ctrl
             + r_contact
             + r_catch
@@ -305,7 +358,9 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
             "flight_progress": float(r_flight_progress),
             "candidate_zone": float(r_candidate_zone),
             "release_bonus": float(r_release),
+            "early_release_penalty": float(r_early_release),
             "time_penalty": float(r_time),
+            "swing_bonus": float(r_swing),
             "control_cost": float(-r_ctrl),
             "contact_bonus": float(r_contact),
             "catch_bonus": float(r_catch),
@@ -338,6 +393,7 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
             "terminated_by": self.last_event.get("terminated_by", None),
             "reward_terms": dict(self.last_reward_terms),
             "reward_profile": self.reward_profile,
+            "release_curriculum": bool(self.release_curriculum),
             "params": asdict(self.params),
         }
         return info
