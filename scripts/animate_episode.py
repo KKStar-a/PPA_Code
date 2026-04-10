@@ -35,6 +35,7 @@ def collect_episode(
     release_q1: float,
     release_dq1: float,
     scripted_warm_start: bool = False,
+    ppo_model_path: str | None = None,
 ) -> dict:
     env = ThreeLinkHighLowBarEnv(seed=seed)
     obs, info = env.reset()
@@ -91,11 +92,21 @@ def collect_episode(
 
     append_frame(step=0, reward=0.0, action=None, obs=obs, info=info)
 
+    ppo_model = None
+    if ppo_model_path:
+        try:
+            from stable_baselines3 import PPO
+        except ModuleNotFoundError as exc:
+            raise RuntimeError("stable-baselines3 is required for --ppo-model") from exc
+        ppo_model = PPO.load(str(ROOT / ppo_model_path))
+
     terminated = False
     truncated = False
     step = 0
     while not (terminated or truncated) and step < max_steps:
-        if demo:
+        if ppo_model is not None:
+            action, _ = ppo_model.predict(obs, deterministic=True)
+        elif demo:
             action = demo_action(
                 step,
                 obs,
@@ -200,6 +211,7 @@ def main() -> None:
     parser.add_argument("--release-dq1", type=float, default=0.10)
     parser.add_argument("--trail", action="store_true", help="show support-point trajectory trail")
     parser.add_argument("--save-path", type=str, default=None, help="optional output path (.gif or .mp4)")
+    parser.add_argument("--ppo-model", type=str, default=None, help="path to PPO model zip (relative to repo)")
     args = parser.parse_args()
 
     if args.contact_baseline:
@@ -223,6 +235,7 @@ def main() -> None:
         release_q1=args.release_q1,
         release_dq1=args.release_dq1,
         scripted_warm_start=(args.contact_baseline and args.scripted),
+        ppo_model_path=args.ppo_model,
     )
 
     summary = None

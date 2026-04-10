@@ -63,14 +63,24 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         if seed is not None:
             self.np_random = np.random.default_rng(seed)
-        _ = options
+        options = options or {}
 
         self.mode = self.HIGH_BAR
         self.step_count = 0
 
-        base_q = np.array([0.0, 0.15, -0.15], dtype=float)
-        self.q = base_q + self.np_random.uniform(-0.05, 0.05, size=3)
-        self.dq = self.np_random.uniform(-0.05, 0.05, size=3)
+        strategy = str(options.get("reset_strategy", "random"))
+        if strategy == "demo_like":
+            base_q = np.array([0.35, 0.18, -0.18], dtype=float)
+            self.q = base_q + self.np_random.uniform(-0.04, 0.04, size=3)
+            self.dq = np.array([0.8, 0.0, 0.0], dtype=float) + self.np_random.uniform(-0.05, 0.05, size=3)
+        elif strategy == "contact_baseline":
+            # Match scripted warm-start used in contact diagnosis tools.
+            self.q = np.array([1.05, 0.15, -0.15], dtype=float) + self.np_random.uniform(-0.02, 0.02, size=3)
+            self.dq = np.array([6.0, 0.0, 0.0], dtype=float) + self.np_random.uniform(-0.05, 0.05, size=3)
+        else:
+            base_q = np.array([0.0, 0.15, -0.15], dtype=float)
+            self.q = base_q + self.np_random.uniform(-0.05, 0.05, size=3)
+            self.dq = self.np_random.uniform(-0.05, 0.05, size=3)
 
         self.p = hand_pos_from_high_bar(self.q, self.params)
         self.dp = hand_vel_from_high_bar(self.q, self.dq, self.params)
@@ -173,10 +183,11 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
         reward = self._compute_reward(
             distance=distance,
             control=np.array([tau2, tau3]),
+            mode=self.mode,
             contact=contact,
             catch_ok=catch_ok,
             success=success,
-            failed=bool(terminated and not success),
+            out_of_bounds=(terminated_by == "state_out_of_bounds"),
             impulse_norm=impulse_norm,
         )
 
@@ -231,24 +242,28 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
         *,
         distance: float,
         control: np.ndarray,
+        mode: int,
         contact: bool,
         catch_ok: bool,
         success: bool,
-        failed: bool,
+        out_of_bounds: bool,
         impulse_norm: float,
     ) -> float:
         progress = self.prev_distance - distance
-        r_progress = 2.0 * progress if self.mode == self.FLIGHT else 0.2 * progress
+        r_distance = 1.5 * progress
+        r_flight_progress = 2.5 * progress if mode == self.FLIGHT else 0.0
+        # Candidate zone around low bar to encourage near-contact behavior before strict contact.
+        r_candidate_zone = 0.35 if distance < (self.params.catch_radius + 0.15) else 0.0
         r_ctrl = 0.001 * float(np.sum(control**2))
 
-        reward = r_progress - r_ctrl
+        reward = r_distance + r_flight_progress + r_candidate_zone - r_ctrl
         if contact:
-            reward += 5.0
+            reward += 6.0
         if catch_ok:
             reward += 40.0
         if success:
             reward += 100.0
-        if failed:
+        if out_of_bounds:
             reward -= 25.0
 
         reward -= 0.02 * impulse_norm
