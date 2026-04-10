@@ -16,8 +16,12 @@ if str(ROOT) not in sys.path:
 
 from envs.rendering import MODE_NAME, get_link_points
 from envs.three_link_env import ThreeLinkHighLowBarEnv
-from scripts.demo_rollout import analyze_demo_records, demo_action, print_demo_summary
-from scripts.scripted_rollout import scripted_action
+try:
+    from scripts.demo_rollout import analyze_demo_records, demo_action, print_demo_summary
+    from scripts.scripted_rollout import scripted_action
+except ModuleNotFoundError:  # direct script fallback
+    from demo_rollout import analyze_demo_records, demo_action, print_demo_summary
+    from scripted_rollout import scripted_action
 
 
 def collect_episode(seed: int, max_steps: int, scripted: bool, demo: bool, release_step: int) -> dict:
