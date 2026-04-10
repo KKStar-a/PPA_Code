@@ -26,6 +26,15 @@ DEMO_SUCCESS_CRITERIA = {
     "min_distance_improvement": 0.20,
 }
 
+# Current best contact-baseline configuration (phase-2 MVP).
+CONTACT_BASELINE_CONFIG = {
+    "strategy": "scripted",
+    "release_step": 4,
+    "min_release_step": 35,
+    "release_q1": 0.10,
+    "release_dq1": 0.10,
+}
+
 
 def demo_action(
     step: int,
@@ -61,9 +70,9 @@ def demo_action(
             release_cmd = -1.0
 
     elif mode == ThreeLinkHighLowBarEnv.FLIGHT:
-        # Keep small damping-like postural commands in flight.
-        tau2 = -1.2 * q2 - 0.2 * obs[5]
-        tau3 = -1.2 * q3 - 0.2 * obs[6]
+        # Keep simple postural commands in flight (MVP).
+        tau2 = -1.0 * q2 - 0.18 * obs[5]
+        tau3 = -1.0 * q3 - 0.18 * obs[6]
         release_cmd = -1.0
 
     else:  # LOW_BAR
@@ -153,7 +162,14 @@ def print_demo_summary(summary: dict[str, Any]) -> None:
     print(f"checks={summary['checks']} demo_pass={summary['demo_pass']}")
 
 
-def run_demo_episode(seed: int = 7, max_steps: int = 300, min_release_step: int = 35) -> dict:
+def run_demo_episode(
+    seed: int = 7,
+    max_steps: int = 300,
+    min_release_step: int = 35,
+    release_q1: float = 0.10,
+    release_dq1: float = 0.10,
+    verbose: bool = True,
+) -> dict:
     env = ThreeLinkHighLowBarEnv(seed=seed)
     obs, info = env.reset()
 
@@ -178,7 +194,15 @@ def run_demo_episode(seed: int = 7, max_steps: int = 300, min_release_step: int 
     step = 0
 
     while not (terminated or truncated) and step < max_steps:
-        action = demo_action(step, obs, info, env.params.tau_max, min_release_step=min_release_step)
+        action = demo_action(
+            step,
+            obs,
+            info,
+            env.params.tau_max,
+            min_release_step=min_release_step,
+            release_q1=release_q1,
+            release_dq1=release_dq1,
+        )
         obs, reward, terminated, truncated, info = env.step(action)
 
         records["step"].append(step)
@@ -195,12 +219,13 @@ def run_demo_episode(seed: int = 7, max_steps: int = 300, min_release_step: int 
         records["contact"].append(bool(info["contact"]))
         records["catch_ok"].append(bool(info["catch_ok"]))
 
-        print(
-            f"step={step:03d} mode={info['mode']} reward={reward:+.3f} "
-            f"q={np.array2string(obs[1:4], precision=3)} dq={np.array2string(obs[4:7], precision=3)} "
-            f"release_cmd={action[2]:+.1f} dist={info['distance_to_low_bar']:.3f} "
-            f"term_by={info['terminated_by']}"
-        )
+        if verbose:
+            print(
+                f"step={step:03d} mode={info['mode']} reward={reward:+.3f} "
+                f"q={np.array2string(obs[1:4], precision=3)} dq={np.array2string(obs[4:7], precision=3)} "
+                f"release_cmd={action[2]:+.1f} dist={info['distance_to_low_bar']:.3f} "
+                f"term_by={info['terminated_by']}"
+            )
 
         step += 1
 
@@ -212,10 +237,18 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--max-steps", type=int, default=300)
     parser.add_argument("--min-release-step", type=int, default=35)
+    parser.add_argument("--release-q1", type=float, default=0.10)
+    parser.add_argument("--release-dq1", type=float, default=0.10)
     parser.add_argument("--save", type=str, default="artifacts/demo_rollout_trace.json")
     args = parser.parse_args()
 
-    records = run_demo_episode(seed=args.seed, max_steps=args.max_steps, min_release_step=args.min_release_step)
+    records = run_demo_episode(
+        seed=args.seed,
+        max_steps=args.max_steps,
+        min_release_step=args.min_release_step,
+        release_q1=args.release_q1,
+        release_dq1=args.release_dq1,
+    )
     summary = analyze_demo_records(records)
     print_demo_summary(summary)
 

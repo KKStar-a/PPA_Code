@@ -17,16 +17,32 @@ if str(ROOT) not in sys.path:
 from envs.rendering import MODE_NAME, get_link_points
 from envs.three_link_env import ThreeLinkHighLowBarEnv
 try:
-    from scripts.demo_rollout import analyze_demo_records, demo_action, print_demo_summary
-    from scripts.scripted_rollout import scripted_action
+    from scripts.demo_rollout import (
+        CONTACT_BASELINE_CONFIG,
+        analyze_demo_records,
+        demo_action,
+        print_demo_summary,
+    )
+    from scripts.scripted_rollout import apply_scripted_warm_start, scripted_action
 except ModuleNotFoundError:  # direct script fallback
-    from demo_rollout import analyze_demo_records, demo_action, print_demo_summary
-    from scripted_rollout import scripted_action
+    from demo_rollout import CONTACT_BASELINE_CONFIG, analyze_demo_records, demo_action, print_demo_summary
+    from scripted_rollout import apply_scripted_warm_start, scripted_action
 
 
-def collect_episode(seed: int, max_steps: int, scripted: bool, demo: bool, release_step: int) -> dict:
+def collect_episode(
+    seed: int,
+    max_steps: int,
+    scripted: bool,
+    demo: bool,
+    release_step: int,
+    release_q1: float,
+    release_dq1: float,
+    scripted_warm_start: bool = False,
+) -> dict:
     env = ThreeLinkHighLowBarEnv(seed=seed)
     obs, info = env.reset()
+    if scripted_warm_start:
+        obs, info = apply_scripted_warm_start(env)
 
     frames: list[dict] = []
     records = {
@@ -79,7 +95,15 @@ def collect_episode(seed: int, max_steps: int, scripted: bool, demo: bool, relea
     step = 0
     while not (terminated or truncated) and step < max_steps:
         if demo:
-            action = demo_action(step, obs, info, env.params.tau_max, min_release_step=release_step)
+            action = demo_action(
+                step,
+                obs,
+                info,
+                env.params.tau_max,
+                min_release_step=release_step,
+                release_q1=release_q1,
+                release_dq1=release_dq1,
+            )
         elif scripted:
             action = scripted_action(step, release_step=release_step)
         else:
@@ -168,11 +192,26 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--scripted", action="store_true", help="use scripted rollout instead of random")
     parser.add_argument("--demo", action="store_true", help="use demo heuristic controller")
+    parser.add_argument("--contact-baseline", action="store_true", help="use current best contact-baseline config")
     parser.add_argument("--max-steps", type=int, default=300)
     parser.add_argument("--release-step", type=int, default=35)
+    parser.add_argument("--release-q1", type=float, default=0.10)
+    parser.add_argument("--release-dq1", type=float, default=0.10)
     parser.add_argument("--trail", action="store_true", help="show support-point trajectory trail")
     parser.add_argument("--save-path", type=str, default=None, help="optional output path (.gif or .mp4)")
     args = parser.parse_args()
+
+    if args.contact_baseline:
+        strategy = CONTACT_BASELINE_CONFIG.get("strategy", "demo")
+        if strategy == "scripted":
+            args.scripted = True
+            args.demo = False
+            args.release_step = int(CONTACT_BASELINE_CONFIG["release_step"])
+        else:
+            args.demo = True
+            args.release_step = int(CONTACT_BASELINE_CONFIG["min_release_step"])
+            args.release_q1 = float(CONTACT_BASELINE_CONFIG["release_q1"])
+            args.release_dq1 = float(CONTACT_BASELINE_CONFIG["release_dq1"])
 
     data = collect_episode(
         seed=args.seed,
@@ -180,12 +219,28 @@ def main() -> None:
         scripted=args.scripted,
         demo=args.demo,
         release_step=args.release_step,
+        release_q1=args.release_q1,
+        release_dq1=args.release_dq1,
+        scripted_warm_start=(args.contact_baseline and args.scripted),
     )
 
     summary = None
     if args.demo:
         summary = analyze_demo_records(data["records"])
         print_demo_summary(summary)
+        print(
+            f"best release_step={summary['release_step']} | best min distance={summary['min_distance_to_low_bar']:.3f} | "
+            f"contact={summary['contact']} | catch_ok={summary['catch_ok']}"
+        )
+    elif args.contact_baseline and args.scripted:
+        # Scripted contact baseline summary.
+        d = np.array(data["records"]["distance_to_low_bar"], dtype=float)
+        min_d = float(np.min(d)) if d.size else float("nan")
+        release_steps = [i for i, f in enumerate(data["records"]["released"]) if f]
+        rel = release_steps[0] if release_steps else -1
+        c = any(data["records"]["contact"])
+        ck = any(data["records"]["catch_ok"])
+        print(f"best release_step={rel} | best min distance={min_d:.3f} | contact={c} | catch_ok={ck}")
 
     animate_episode(data, save_path=args.save_path, trail=args.trail, summary=summary)
 

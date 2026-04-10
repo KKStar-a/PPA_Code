@@ -17,6 +17,18 @@ from envs.kinematics import hand_pos_from_high_bar, hand_vel_from_high_bar
 from envs.three_link_env import ThreeLinkHighLowBarEnv
 
 
+def apply_scripted_warm_start(env: ThreeLinkHighLowBarEnv) -> tuple[np.ndarray, dict]:
+    """Inject a deterministic warm-start used by scripted contact baseline.
+
+    TODO: this is a phase-2 heuristic convenience for contact-baseline debugging.
+    """
+    env.q[0] = 1.05
+    env.dq[0] = 6.0
+    env.p = hand_pos_from_high_bar(env.q, env.params)
+    env.dp = hand_vel_from_high_bar(env.q, env.dq, env.params)
+    return env._build_obs(), env._build_info()
+
+
 def scripted_action(step: int, release_step: int, tau_amp: float = 4.0) -> np.ndarray:
     """Simple heuristic action sequence.
 
@@ -38,19 +50,11 @@ def scripted_action(step: int, release_step: int, tau_amp: float = 4.0) -> np.nd
     return np.array([tau2, tau3, release_cmd], dtype=np.float32)
 
 
-def run_scripted_episode(seed: int = 7, max_steps: int = 500, release_step: int = 6) -> dict:
+def run_scripted_episode(seed: int = 7, max_steps: int = 500, release_step: int = 6, verbose: bool = True) -> dict:
     env = ThreeLinkHighLowBarEnv(seed=seed)
     obs, info = env.reset()
 
-    # Minimal reachability tweak for debugging geometry:
-    # move initial posture to the right and inject moderate positive tangential speed.
-    # TODO: remove this script-side injection after upgrading dynamics and reset policy.
-    env.q[0] = 1.05
-    env.dq[0] = 6.0
-    env.p = hand_pos_from_high_bar(env.q, env.params)
-    env.dp = hand_vel_from_high_bar(env.q, env.dq, env.params)
-    obs = env._build_obs()
-    info = env._build_info()
+    obs, info = apply_scripted_warm_start(env)
 
     records = {
         "step": [],
@@ -91,27 +95,29 @@ def run_scripted_episode(seed: int = 7, max_steps: int = 500, release_step: int 
         records["dp"].append(obs[9:11].tolist())
         records["action"].append(action.tolist())
 
-        print(
-            f"step={step:03d} mode={info['mode']} dist={dist:.3f} reward={reward:+.3f} "
-            f"release={info['released']} contact={info['contact']} catch_ok={info['catch_ok']} "
-            f"term_by={info['terminated_by']}"
-        )
+        if verbose:
+            print(
+                f"step={step:03d} mode={info['mode']} dist={dist:.3f} reward={reward:+.3f} "
+                f"release={info['released']} contact={info['contact']} catch_ok={info['catch_ok']} "
+                f"term_by={info['terminated_by']}"
+            )
 
-    print("\n=== scripted rollout summary ===")
-    print(f"initial distance: {init_dist:.3f}")
-    print(f"minimum distance: {min_dist:.3f}")
-    print(f"contact seen: {contact_seen}")
-    print(f"final terminated_by: {info['terminated_by']}")
+    if verbose:
+        print("\n=== scripted rollout summary ===")
+        print(f"initial distance: {init_dist:.3f}")
+        print(f"minimum distance: {min_dist:.3f}")
+        print(f"contact seen: {contact_seen}")
+        print(f"final terminated_by: {info['terminated_by']}")
 
-    if not contact_seen:
-        print("\nLikely bottlenecks (heuristic diagnosis):")
-        if min_dist > 0.6:
-            print("- hand trajectory did not get close enough; check low bar position or release initial velocity mapping.")
-        if all(not r for r in records["released"]):
-            print("- release command did not trigger; check release threshold/logic.")
-        print("- if distance got small but no contact, contact guard may be too strict (phi<=0 and approaching).")
-    elif any(records["contact"]) and not any(records["catch_ok"]):
-        print("- contact happened but catch failed: likely catch thresholds are too strict.")
+        if not contact_seen:
+            print("\nLikely bottlenecks (heuristic diagnosis):")
+            if min_dist > 0.6:
+                print("- hand trajectory did not get close enough; check low bar position or release initial velocity mapping.")
+            if all(not r for r in records["released"]):
+                print("- release command did not trigger; check release threshold/logic.")
+            print("- if distance got small but no contact, contact guard may be too strict (phi<=0 and approaching).")
+        elif any(records["contact"]) and not any(records["catch_ok"]):
+            print("- contact happened but catch failed: likely catch thresholds are too strict.")
 
     return records
 
