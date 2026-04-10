@@ -36,9 +36,19 @@ def collect_episode(
     release_dq1: float,
     scripted_warm_start: bool = False,
     ppo_model_path: str | None = None,
+    reset_strategy: str = "random",
+    reward_profile: str = "shaped_v3",
+    release_curriculum: bool = False,
+    curriculum_min_release_step: int = 12,
+    stochastic: bool = False,
 ) -> dict:
-    env = ThreeLinkHighLowBarEnv(seed=seed)
-    obs, info = env.reset()
+    env = ThreeLinkHighLowBarEnv(
+        seed=seed,
+        reward_profile=reward_profile,
+        release_curriculum=release_curriculum,
+        curriculum_min_release_step=curriculum_min_release_step,
+    )
+    obs, info = env.reset(options={"reset_strategy": reset_strategy})
     if scripted_warm_start:
         obs, info = apply_scripted_warm_start(env)
 
@@ -106,7 +116,7 @@ def collect_episode(
     cumulative_reward = 0.0
     while not (terminated or truncated) and step < max_steps:
         if ppo_model is not None:
-            action, _ = ppo_model.predict(obs, deterministic=True)
+            action, _ = ppo_model.predict(obs, deterministic=not stochastic)
         elif demo:
             action = demo_action(
                 step,
@@ -132,12 +142,20 @@ def collect_episode(
         "frames": frames,
         "params": env.params,
         "records": records,
+        "config": {
+            "reset_strategy": reset_strategy,
+            "reward_profile": reward_profile,
+            "release_curriculum": release_curriculum,
+            "curriculum_min_release_step": curriculum_min_release_step,
+            "policy_mode": "stochastic" if stochastic else "deterministic",
+        },
     }
 
 
 def animate_episode(data: dict, save_path: str | None = None, trail: bool = False, summary: dict | None = None) -> None:
     frames = data["frames"]
     params = data["params"]
+    cfg = data.get("config", {})
 
     fig, ax = plt.subplots(figsize=(7, 6))
 
@@ -182,6 +200,11 @@ def animate_episode(data: dict, save_path: str | None = None, trail: bool = Fals
                 f"\nrel_step={summary['release_step']} swing={summary['q1_pre_release_amp']:.3f} "
                 f"min_dist={summary['min_distance_to_low_bar']:.3f}"
             )
+        if cfg:
+            title += (
+                f"\nreset={cfg.get('reset_strategy')} reward={cfg.get('reward_profile')} "
+                f"curriculum={cfg.get('release_curriculum')} policy={cfg.get('policy_mode')}"
+            )
         ax.set_title(title)
 
         return line_links, support_pt, traj_line
@@ -215,6 +238,11 @@ def main() -> None:
     parser.add_argument("--trail", action="store_true", help="show support-point trajectory trail")
     parser.add_argument("--save-path", type=str, default=None, help="optional output path (.gif or .mp4)")
     parser.add_argument("--ppo-model", type=str, default=None, help="path to PPO model zip (relative to repo)")
+    parser.add_argument("--reset-strategy", choices=["random", "demo_like", "contact_baseline"], default="random")
+    parser.add_argument("--reward-profile", choices=["legacy_v1", "shaped_v2", "shaped_v3"], default="shaped_v3")
+    parser.add_argument("--release-curriculum", action="store_true")
+    parser.add_argument("--curriculum-min-release-step", type=int, default=12)
+    parser.add_argument("--stochastic", action="store_true", help="sample stochastic PPO actions")
     args = parser.parse_args()
 
     if args.contact_baseline:
@@ -239,6 +267,11 @@ def main() -> None:
         release_dq1=args.release_dq1,
         scripted_warm_start=(args.contact_baseline and args.scripted),
         ppo_model_path=args.ppo_model,
+        reset_strategy=args.reset_strategy,
+        reward_profile=args.reward_profile,
+        release_curriculum=args.release_curriculum,
+        curriculum_min_release_step=args.curriculum_min_release_step,
+        stochastic=args.stochastic,
     )
 
     summary = None
@@ -265,6 +298,24 @@ def main() -> None:
             f"min_dist_step={g['min_dist_step']} | inward={at['inward']:.3f} | "
             f"failed={g['failed_subconditions_at_min_phi']}"
         )
+
+    d = np.array(data["records"]["distance_to_low_bar"], dtype=float)
+    min_d = float(np.min(d)) if d.size else float("nan")
+    release_steps = [i for i, f in enumerate(data["records"]["released"]) if f]
+    rel = release_steps[0] if release_steps else -1
+    c = any(data["records"]["contact"])
+    ck = any(data["records"]["catch_ok"])
+    term = data["records"]["terminated_by"][-1] if data["records"]["terminated_by"] else None
+    cfg = data.get("config", {})
+    print(
+        "episode config: "
+        f"reset_strategy={cfg.get('reset_strategy')} reward_profile={cfg.get('reward_profile')} "
+        f"release_curriculum={cfg.get('release_curriculum')} policy_mode={cfg.get('policy_mode')}"
+    )
+    print(
+        f"episode summary: release_step={rel} min_distance={min_d:.3f} "
+        f"contact={c} catch_ok={ck} termination={term}"
+    )
 
     animate_episode(data, save_path=args.save_path, trail=args.trail, summary=summary)
 
