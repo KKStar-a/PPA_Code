@@ -53,6 +53,7 @@ def get_link_points(mode: int, q: np.ndarray, p: np.ndarray, params: EnvParams) 
         - points: 4x2 array [anchor, j1, j2, tip]
         - anchor: 2d anchor point
         - support_point: current support/grip point shown in animation
+        - contact_point: guard-consistent point used by contact checks (state `p`)
     """
     if mode == 0:  # HIGH_BAR
         anchor = np.asarray(params.high_bar_pos, dtype=float)
@@ -65,4 +66,9 @@ def get_link_points(mode: int, q: np.ndarray, p: np.ndarray, params: EnvParams) 
         support = np.asarray(p, dtype=float)
 
     points = _link_points_from_anchor(anchor, q, params)
-    return {"points": points, "anchor": anchor, "support_point": support}
+    return {
+        "points": points,
+        "anchor": anchor,
+        "support_point": support,
+        "contact_point": np.asarray(p, dtype=float),
+    }

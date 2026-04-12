@@ -43,6 +43,7 @@ def collect_episode(
     stochastic: bool = False,
     smooth_contact: bool = False,
     transition_frames: int = 5,
+    show_contact_point: bool = False,
 ) -> dict:
     env = ThreeLinkHighLowBarEnv(
         seed=seed,
@@ -86,6 +87,7 @@ def collect_episode(
                 "catch_ok": bool(info["catch_ok"]),
                 "points": geom["points"],
                 "support": geom["support_point"],
+                "contact_point": geom["contact_point"],
                 "action": None if action is None else np.array(action, dtype=float),
             }
         )
@@ -164,6 +166,7 @@ def collect_episode(
             "policy_mode": "stochastic" if stochastic else "deterministic",
             "smooth_contact": smooth_contact,
             "transition_frames": transition_frames,
+            "show_contact_point": show_contact_point,
         },
         "contact_transition_step": contact_transition_step,
         "pre_contact_distance": pre_contact_distance,
@@ -200,6 +203,9 @@ def build_contact_transition_frames(
             alpha = k / (transition_frames + 1)
             points = (1.0 - alpha) * np.asarray(a["points"], dtype=float) + alpha * np.asarray(b["points"], dtype=float)
             support = (1.0 - alpha) * np.asarray(a["support"], dtype=float) + alpha * np.asarray(b["support"], dtype=float)
+            contact_point = (1.0 - alpha) * np.asarray(a["contact_point"], dtype=float) + alpha * np.asarray(
+                b["contact_point"], dtype=float
+            )
             expanded.append(
                 {
                     "step": b["step"],
@@ -214,6 +220,7 @@ def build_contact_transition_frames(
                     "catch_ok": bool(b["catch_ok"]),
                     "points": points,
                     "support": support,
+                    "contact_point": contact_point,
                     "action": b.get("action"),
                     "is_contact_transition_frame": True,
                     "transition_alpha": alpha,
@@ -234,6 +241,7 @@ def animate_episode(data: dict, save_path: str | None = None, trail: bool = Fals
 
     line_links, = ax.plot([], [], "-o", lw=3, color="tab:blue", markersize=5)
     support_pt, = ax.plot([], [], "o", color="tab:purple", markersize=7, label="support/grip")
+    contact_pt, = ax.plot([], [], "o", color="tab:orange", markersize=7, label="guard contact point p")
     traj_line, = ax.plot([], [], color="tab:cyan", alpha=0.35, lw=1.4, label="support trajectory")
 
     ax.scatter([params.high_bar_pos[0]], [params.high_bar_pos[1]], c="tab:red", s=90, marker="o", label="high bar")
@@ -252,9 +260,14 @@ def animate_episode(data: dict, save_path: str | None = None, trail: bool = Fals
         frame = frames[i]
         points = frame["points"]
         sx, sy = frame["support"]
+        cx, cy = frame["contact_point"]
 
         line_links.set_data(points[:, 0], points[:, 1])
         support_pt.set_data([sx], [sy])
+        if cfg.get("show_contact_point", False):
+            contact_pt.set_data([cx], [cy])
+        else:
+            contact_pt.set_data([], [])
 
         if trail:
             support_hist_x.append(float(sx))
@@ -282,7 +295,7 @@ def animate_episode(data: dict, save_path: str | None = None, trail: bool = Fals
             title += " | contact transition frame"
         ax.set_title(title)
 
-        return line_links, support_pt, traj_line
+        return line_links, support_pt, contact_pt, traj_line
 
     anim = FuncAnimation(fig, update, frames=len(frames), interval=40, blit=False, repeat=False)
 
@@ -320,6 +333,7 @@ def main() -> None:
     parser.add_argument("--stochastic", action="store_true", help="sample stochastic PPO actions")
     parser.add_argument("--smooth-contact", action="store_true", help="insert interpolation frames across FLIGHT->LOW_BAR switch")
     parser.add_argument("--transition-frames", type=int, default=5, help="number of inserted contact transition frames")
+    parser.add_argument("--show-contact-point", action="store_true", help="draw guard contact point marker (state p)")
     args = parser.parse_args()
 
     if args.contact_baseline:
@@ -351,6 +365,7 @@ def main() -> None:
         stochastic=args.stochastic,
         smooth_contact=args.smooth_contact,
         transition_frames=args.transition_frames,
+        show_contact_point=args.show_contact_point,
     )
 
     summary = None
@@ -401,6 +416,20 @@ def main() -> None:
         f"pre_contact_distance={data.get('pre_contact_distance')} "
         f"inserted_transition_frames={data.get('inserted_transition_frames')}"
     )
+    contact_idx = next((i for i, f in enumerate(data["records"]["contact"]) if f), None)
+    if contact_idx is None:
+        print("contact-point debug: guard uses state point `p`; no contact event in this episode.")
+    else:
+        pre_idx = max(0, contact_idx - 1)
+        pre_p = np.asarray(data["records"]["p"][pre_idx], dtype=float)
+        low = np.asarray(data["params"].low_bar_pos, dtype=float)
+        dist = float(np.linalg.norm(pre_p - low))
+        marker = np.asarray(data["frames"][pre_idx].get("contact_point", pre_p), dtype=float)
+        print(
+            "contact-point debug: guard point definition=state `p`; "
+            f"pre_contact_point={pre_p.tolist()} low_bar={low.tolist()} distance={dist:.6f} "
+            f"marker_point={marker.tolist()}"
+        )
 
     animate_episode(data, save_path=args.save_path, trail=args.trail, summary=summary)
 
