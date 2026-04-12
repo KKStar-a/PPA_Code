@@ -41,6 +41,8 @@ def collect_episode(
     release_curriculum: bool = False,
     curriculum_min_release_step: int = 12,
     stochastic: bool = False,
+    smooth_contact: bool = False,
+    transition_frames: int = 5,
 ) -> dict:
     env = ThreeLinkHighLowBarEnv(
         seed=seed,
@@ -138,8 +140,20 @@ def collect_episode(
         append_frame(step=step, reward=reward, action=action, obs=obs, info=info)
         frames[-1]["cumulative_reward"] = cumulative_reward
 
+    frames_out = frames
+    contact_transition_step = None
+    pre_contact_distance = None
+    inserted_transition_frames = 0
+    if smooth_contact and transition_frames > 0:
+        (
+            frames_out,
+            contact_transition_step,
+            pre_contact_distance,
+            inserted_transition_frames,
+        ) = build_contact_transition_frames(frames, transition_frames=transition_frames)
+
     return {
-        "frames": frames,
+        "frames": frames_out,
         "params": env.params,
         "records": records,
         "config": {
@@ -148,8 +162,67 @@ def collect_episode(
             "release_curriculum": release_curriculum,
             "curriculum_min_release_step": curriculum_min_release_step,
             "policy_mode": "stochastic" if stochastic else "deterministic",
+            "smooth_contact": smooth_contact,
+            "transition_frames": transition_frames,
         },
+        "contact_transition_step": contact_transition_step,
+        "pre_contact_distance": pre_contact_distance,
+        "inserted_transition_frames": inserted_transition_frames,
     }
+
+
+def build_contact_transition_frames(
+    frames: list[dict],
+    *,
+    transition_frames: int,
+) -> tuple[list[dict], int | None, float | None, int]:
+    """Insert visual interpolation frames around FLIGHT->LOW_BAR contact switch."""
+    if len(frames) < 2:
+        return frames, None, None, 0
+
+    expanded: list[dict] = []
+    contact_step = None
+    pre_contact_distance = None
+    inserted = 0
+
+    for i in range(len(frames) - 1):
+        a = frames[i]
+        b = frames[i + 1]
+        expanded.append(a)
+
+        is_transition = (int(a["mode"]) == ThreeLinkHighLowBarEnv.FLIGHT) and (int(b["mode"]) == ThreeLinkHighLowBarEnv.LOW_BAR)
+        if not is_transition:
+            continue
+
+        contact_step = int(b["step"])
+        pre_contact_distance = float(a["distance"])
+        for k in range(1, transition_frames + 1):
+            alpha = k / (transition_frames + 1)
+            points = (1.0 - alpha) * np.asarray(a["points"], dtype=float) + alpha * np.asarray(b["points"], dtype=float)
+            support = (1.0 - alpha) * np.asarray(a["support"], dtype=float) + alpha * np.asarray(b["support"], dtype=float)
+            expanded.append(
+                {
+                    "step": b["step"],
+                    "mode": b["mode"],
+                    "mode_name": b["mode_name"],
+                    "reward": (1.0 - alpha) * float(a["reward"]) + alpha * float(b["reward"]),
+                    "cumulative_reward": (1.0 - alpha) * float(a.get("cumulative_reward", 0.0))
+                    + alpha * float(b.get("cumulative_reward", 0.0)),
+                    "distance": (1.0 - alpha) * float(a["distance"]) + alpha * float(b["distance"]),
+                    "released": bool(b["released"]),
+                    "contact": bool(b["contact"]),
+                    "catch_ok": bool(b["catch_ok"]),
+                    "points": points,
+                    "support": support,
+                    "action": b.get("action"),
+                    "is_contact_transition_frame": True,
+                    "transition_alpha": alpha,
+                }
+            )
+            inserted += 1
+
+    expanded.append(frames[-1])
+    return expanded, contact_step, pre_contact_distance, inserted
 
 
 def animate_episode(data: dict, save_path: str | None = None, trail: bool = False, summary: dict | None = None) -> None:
@@ -205,6 +278,8 @@ def animate_episode(data: dict, save_path: str | None = None, trail: bool = Fals
                 f"\nreset={cfg.get('reset_strategy')} reward={cfg.get('reward_profile')} "
                 f"curriculum={cfg.get('release_curriculum')} policy={cfg.get('policy_mode')}"
             )
+        if frame.get("is_contact_transition_frame", False):
+            title += " | contact transition frame"
         ax.set_title(title)
 
         return line_links, support_pt, traj_line
@@ -243,6 +318,8 @@ def main() -> None:
     parser.add_argument("--release-curriculum", action="store_true")
     parser.add_argument("--curriculum-min-release-step", type=int, default=12)
     parser.add_argument("--stochastic", action="store_true", help="sample stochastic PPO actions")
+    parser.add_argument("--smooth-contact", action="store_true", help="insert interpolation frames across FLIGHT->LOW_BAR switch")
+    parser.add_argument("--transition-frames", type=int, default=5, help="number of inserted contact transition frames")
     args = parser.parse_args()
 
     if args.contact_baseline:
@@ -272,6 +349,8 @@ def main() -> None:
         release_curriculum=args.release_curriculum,
         curriculum_min_release_step=args.curriculum_min_release_step,
         stochastic=args.stochastic,
+        smooth_contact=args.smooth_contact,
+        transition_frames=args.transition_frames,
     )
 
     summary = None
@@ -315,6 +394,12 @@ def main() -> None:
     print(
         f"episode summary: release_step={rel} min_distance={min_d:.3f} "
         f"contact={c} catch_ok={ck} termination={term}"
+    )
+    print(
+        "contact transition debug: "
+        f"contact_step={data.get('contact_transition_step')} "
+        f"pre_contact_distance={data.get('pre_contact_distance')} "
+        f"inserted_transition_frames={data.get('inserted_transition_frames')}"
     )
 
     animate_episode(data, save_path=args.save_path, trail=args.trail, summary=summary)
