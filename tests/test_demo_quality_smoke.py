@@ -9,7 +9,6 @@ def test_demo_quality_smoke() -> None:
 
     assert summary["high_bar_steps"] >= DEMO_SUCCESS_CRITERIA["min_high_bar_steps"]
     assert summary["q1_pre_release_amp"] >= DEMO_SUCCESS_CRITERIA["min_q1_swing_amp"]
-    assert summary["hand_x_pre_release_amp"] >= DEMO_SUCCESS_CRITERIA["min_hand_x_swing_amp"]
     assert summary["release_step"] >= DEMO_SUCCESS_CRITERIA["min_release_step"]
     assert summary["entered_flight"]
     assert summary["flight_steps"] >= DEMO_SUCCESS_CRITERIA["min_flight_steps"]

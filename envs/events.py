@@ -17,18 +17,27 @@ def should_release(release_cmd: float, env_state: dict, params: EnvParams) -> bo
 
 
 def check_low_bar_contact(p: np.ndarray, dp: np.ndarray, params: EnvParams) -> dict:
-    """Return contact status and geometry metrics for FLIGHT -> LOW_BAR."""
+    """Return contact status and geometry metrics for FLIGHT -> LOW_BAR.
+
+    The contact point is the unified grip/hand point `p` across all modes.
+    """
     rel = p - params.low_bar_pos
     dist = float(np.linalg.norm(rel))
     phi = dist - float(params.catch_radius)
-    approaching = float(rel @ dp) < 0.0
-    contact = bool(phi <= 0.0 and approaching)
+    inward_velocity = float(rel @ dp)
+    radius_ok = bool(phi <= 0.0)
+    inward_ok = bool(inward_velocity < 0.0)
+    contact = bool(radius_ok and inward_ok)
 
     return {
         "contact": contact,
         "phi": phi,
         "distance": dist,
-        "approaching": approaching,
+        "inward_velocity": inward_velocity,
+        "radius_ok": radius_ok,
+        "inward_ok": inward_ok,
+        # Backward-compatible field name used by old scripts.
+        "approaching": inward_ok,
     }
 
 

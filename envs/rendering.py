@@ -29,19 +29,17 @@ def _link_points_from_anchor(anchor: np.ndarray, q: np.ndarray, params: EnvParam
     return np.vstack([anchor, j1, j2, tip])
 
 
-def recover_anchor_for_flight(p: np.ndarray, q: np.ndarray, params: EnvParams) -> np.ndarray:
-    """Recover an equivalent root anchor in FLIGHT mode.
+def _link_points_from_grip(grip_point: np.ndarray, q: np.ndarray, params: EnvParams) -> np.ndarray:
+    """Return [anchor, j1, j2, tip] with tip fixed at the grip point.
 
-    In this MVP environment, `p` tracks the end of the first link (j1-like point).
-    We recover a visual root anchor by inverting:
-        p = anchor + [l1*sin(q1), -l1*cos(q1)]
-
-    TODO: replace by a model-consistent floating-base geometry once FLIGHT dynamics
-    and state definition are upgraded.
+    The unified task semantic uses tip == grip_point for contact/catch checks.
     """
-    q1 = float(q[0])
-    offset = np.array([params.l1 * np.sin(q1), -params.l1 * np.cos(q1)])
-    return p - offset
+    a1, a2, a3 = _angles(q)
+    tip = np.asarray(grip_point, dtype=float)
+    j2 = tip - np.array([params.l3 * np.sin(a3), -params.l3 * np.cos(a3)])
+    j1 = j2 - np.array([params.l2 * np.sin(a2), -params.l2 * np.cos(a2)])
+    anchor = j1 - np.array([params.l1 * np.sin(a1), -params.l1 * np.cos(a1)])
+    return np.vstack([anchor, j1, j2, tip])
 
 
 def get_link_points(mode: int, q: np.ndarray, p: np.ndarray, params: EnvParams) -> dict:
@@ -55,20 +53,18 @@ def get_link_points(mode: int, q: np.ndarray, p: np.ndarray, params: EnvParams) 
         - support_point: current support/grip point shown in animation
         - contact_point: guard-consistent point used by contact checks (state `p`)
     """
-    if mode == 0:  # HIGH_BAR
-        anchor = np.asarray(params.high_bar_pos, dtype=float)
-        support = anchor
-    elif mode == 2:  # LOW_BAR
-        anchor = np.asarray(params.low_bar_pos, dtype=float)
-        support = anchor
-    else:  # FLIGHT
-        anchor = recover_anchor_for_flight(np.asarray(p, dtype=float), np.asarray(q, dtype=float), params)
-        support = np.asarray(p, dtype=float)
+    grip = np.asarray(p, dtype=float)
+    points = _link_points_from_grip(grip, q, params)
+    if mode == 0:
+        support = np.asarray(params.high_bar_pos, dtype=float)
+    elif mode == 2:
+        support = np.asarray(params.low_bar_pos, dtype=float)
+    else:
+        support = grip
 
-    points = _link_points_from_anchor(anchor, q, params)
     return {
         "points": points,
-        "anchor": anchor,
+        "anchor": points[0],
         "support_point": support,
-        "contact_point": np.asarray(p, dtype=float),
+        "contact_point": grip,
     }

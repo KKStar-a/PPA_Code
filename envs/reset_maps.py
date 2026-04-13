@@ -24,6 +24,8 @@ def reset_map_flight_to_low_bar(
     -----
     TODO: replace with model-consistent M^{-1}(q) J_cm(q)^T dp update.
     """
+    # `p` is the unified grip point. In this simplified map, we keep q and apply
+    # a reduced dq jump based on incoming grip-point velocity `dp`.
     _ = p
     q_plus = q.copy()
 

@@ -13,12 +13,6 @@ from envs.dynamics_flight import f_flight
 from envs.dynamics_high_bar import f_high_bar
 from envs.dynamics_low_bar import f_low_bar
 from envs.events import check_catch_success, check_low_bar_contact, should_release
-from envs.kinematics import (
-    hand_pos_from_high_bar,
-    hand_pos_from_low_bar,
-    hand_vel_from_high_bar,
-    hand_vel_from_low_bar,
-)
 from envs.params import DEFAULT_PARAMS, EnvParams
 from envs.reset_maps import reset_map_flight_to_low_bar
 
@@ -97,12 +91,15 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
             self.q = base_q + self.np_random.uniform(-0.05, 0.05, size=3)
             self.dq = self.np_random.uniform(-0.05, 0.05, size=3)
 
-        self.p = hand_pos_from_high_bar(self.q, self.params)
-        self.dp = hand_vel_from_high_bar(self.q, self.dq, self.params)
+        # Unified semantics: p, dp represent the grip/hand point state.
+        # In HIGH_BAR, grip is constrained at the high bar.
+        self.p = np.asarray(self.params.high_bar_pos, dtype=float).copy()
+        self.dp = np.zeros(2, dtype=float)
         self.hb_q1_min = float(self.q[0])
         self.hb_q1_max = float(self.q[0])
-        self.hb_handx_min = float(self.p[0])
-        self.hb_handx_max = float(self.p[0])
+        tip = self._grip_pos_from_anchor(self.q, np.asarray(self.params.high_bar_pos, dtype=float))
+        self.hb_handx_min = float(tip[0])
+        self.hb_handx_max = float(tip[0])
 
         self.prev_distance = float(np.linalg.norm(self.p - self.params.low_bar_pos))
         self.last_event = {
@@ -139,17 +136,22 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
         if self.mode == self.HIGH_BAR:
             ddq = f_high_bar(self.q, self.dq, u, self.params)
             self._integrate_joint_dynamics(ddq)
-            self.p = hand_pos_from_high_bar(self.q, self.params)
-            self.dp = hand_vel_from_high_bar(self.q, self.dq, self.params)
+            # In HIGH_BAR, grip point is fixed at the high bar by constraint.
+            self.p = np.asarray(self.params.high_bar_pos, dtype=float).copy()
+            self.dp = np.zeros(2, dtype=float)
             self.hb_q1_min = min(self.hb_q1_min, float(self.q[0]))
             self.hb_q1_max = max(self.hb_q1_max, float(self.q[0]))
-            self.hb_handx_min = min(self.hb_handx_min, float(self.p[0]))
-            self.hb_handx_max = max(self.hb_handx_max, float(self.p[0]))
+            tip = self._grip_pos_from_anchor(self.q, np.asarray(self.params.high_bar_pos, dtype=float))
+            self.hb_handx_min = min(self.hb_handx_min, float(tip[0]))
+            self.hb_handx_max = max(self.hb_handx_max, float(tip[0]))
 
             if should_release(release_cmd, self._state_dict(), self.params):
                 if self.release_curriculum and self.step_count < self.curriculum_min_release_step:
                     early_release_blocked = True
                 else:
+                    # On release, initialize free-flight grip state from distal tip kinematics.
+                    self.p = self._grip_pos_from_anchor(self.q, np.asarray(self.params.high_bar_pos, dtype=float))
+                    self.dp = self._grip_vel_from_anchor(self.q, self.dq)
                     self.mode = self.FLIGHT
                     released = True
 
@@ -180,8 +182,9 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
                     self.dq = dq_plus
                     impulse_norm = float(np.linalg.norm(impulse))
                     self.mode = self.LOW_BAR
-                    self.p = hand_pos_from_low_bar(self.q, self.params)
-                    self.dp = hand_vel_from_low_bar(self.q, self.dq, self.params)
+                    # In LOW_BAR, grip point is constrained at the low bar.
+                    self.p = np.asarray(self.params.low_bar_pos, dtype=float).copy()
+                    self.dp = np.zeros(2, dtype=float)
                 else:
                     terminated = True
                     terminated_by = "catch_failed"
@@ -189,8 +192,8 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
         elif self.mode == self.LOW_BAR:
             ddq = f_low_bar(self.q, self.dq, u, self.params)
             self._integrate_joint_dynamics(ddq)
-            self.p = hand_pos_from_low_bar(self.q, self.params)
-            self.dp = hand_vel_from_low_bar(self.q, self.dq, self.params)
+            self.p = np.asarray(self.params.low_bar_pos, dtype=float).copy()
+            self.dp = np.zeros(2, dtype=float)
 
             # MVP success: survive low-bar mode for a short stable window.
             if self.step_count > 80:
@@ -245,6 +248,37 @@ class ThreeLinkHighLowBarEnv(gym.Env[np.ndarray, np.ndarray]):
         self.q = self.q + self.params.dt * self.dq
         self.dp = self.dp + self.params.dt * state_dot["dp_dot"]
         self.p = self.p + self.params.dt * self.dp
+
+    def _grip_pos_from_anchor(self, q: np.ndarray, anchor: np.ndarray) -> np.ndarray:
+        """Tip/grip point world position for visualization and release mapping."""
+        a1 = float(q[0])
+        a2 = float(q[0] + q[1])
+        a3 = float(q[0] + q[1] + q[2])
+        return np.asarray(anchor, dtype=float) + np.array(
+            [
+                self.params.l1 * np.sin(a1) + self.params.l2 * np.sin(a2) + self.params.l3 * np.sin(a3),
+                -self.params.l1 * np.cos(a1) - self.params.l2 * np.cos(a2) - self.params.l3 * np.cos(a3),
+            ]
+        )
+
+    def _grip_vel_from_anchor(self, q: np.ndarray, dq: np.ndarray) -> np.ndarray:
+        """Tip/grip point world velocity for release mapping."""
+        a1 = float(q[0])
+        a2 = float(q[0] + q[1])
+        a3 = float(q[0] + q[1] + q[2])
+        da1 = float(dq[0])
+        da2 = float(dq[0] + dq[1])
+        da3 = float(dq[0] + dq[1] + dq[2])
+        return np.array(
+            [
+                self.params.l1 * np.cos(a1) * da1
+                + self.params.l2 * np.cos(a2) * da2
+                + self.params.l3 * np.cos(a3) * da3,
+                self.params.l1 * np.sin(a1) * da1
+                + self.params.l2 * np.sin(a2) * da2
+                + self.params.l3 * np.sin(a3) * da3,
+            ]
+        )
 
     def _state_dict(self) -> dict:
         return {

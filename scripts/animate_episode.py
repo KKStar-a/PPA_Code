@@ -242,7 +242,7 @@ def animate_episode(data: dict, save_path: str | None = None, trail: bool = Fals
     line_links, = ax.plot([], [], "-o", lw=3, color="tab:blue", markersize=5)
     support_pt, = ax.plot([], [], "o", color="tab:purple", markersize=7, label="support/grip")
     contact_pt, = ax.plot([], [], "o", color="tab:orange", markersize=7, label="guard contact point p")
-    traj_line, = ax.plot([], [], color="tab:cyan", alpha=0.35, lw=1.4, label="support trajectory")
+    traj_line, = ax.plot([], [], color="tab:cyan", alpha=0.35, lw=1.4, label="grip/contact trajectory")
 
     ax.scatter([params.high_bar_pos[0]], [params.high_bar_pos[1]], c="tab:red", s=90, marker="o", label="high bar")
     ax.scatter([params.low_bar_pos[0]], [params.low_bar_pos[1]], c="tab:green", s=90, marker="x", label="low bar")
@@ -253,8 +253,8 @@ def animate_episode(data: dict, save_path: str | None = None, trail: bool = Fals
     ax.grid(True, alpha=0.3)
     ax.legend(loc="upper right")
 
-    support_hist_x: list[float] = []
-    support_hist_y: list[float] = []
+    grip_hist_x: list[float] = []
+    grip_hist_y: list[float] = []
 
     def update(i: int):
         frame = frames[i]
@@ -270,9 +270,9 @@ def animate_episode(data: dict, save_path: str | None = None, trail: bool = Fals
             contact_pt.set_data([], [])
 
         if trail:
-            support_hist_x.append(float(sx))
-            support_hist_y.append(float(sy))
-            traj_line.set_data(support_hist_x, support_hist_y)
+            grip_hist_x.append(float(cx))
+            grip_hist_y.append(float(cy))
+            traj_line.set_data(grip_hist_x, grip_hist_y)
         else:
             traj_line.set_data([], [])
 
@@ -418,7 +418,7 @@ def main() -> None:
     )
     contact_idx = next((i for i, f in enumerate(data["records"]["contact"]) if f), None)
     if contact_idx is None:
-        print("contact-point debug: guard uses state point `p`; no contact event in this episode.")
+        print("contact-point debug: guard uses unified grip/contact point `p`; no contact event in this episode.")
     else:
         pre_idx = max(0, contact_idx - 1)
         pre_p = np.asarray(data["records"]["p"][pre_idx], dtype=float)
@@ -426,7 +426,7 @@ def main() -> None:
         dist = float(np.linalg.norm(pre_p - low))
         marker = np.asarray(data["frames"][pre_idx].get("contact_point", pre_p), dtype=float)
         print(
-            "contact-point debug: guard point definition=state `p`; "
+            "contact-point debug: guard point definition=unified grip point (state `p`); "
             f"pre_contact_point={pre_p.tolist()} low_bar={low.tolist()} distance={dist:.6f} "
             f"marker_point={marker.tolist()}"
         )
